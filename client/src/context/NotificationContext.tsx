@@ -1,5 +1,6 @@
-import { createContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { getUnreadCount } from '../services/api';
+import { AuthContext } from './AuthContext';
 
 interface NotificationContextType {
   unreadCount: number;
@@ -21,22 +22,29 @@ interface NotificationProviderProps {
 
 export const NotificationProvider = ({ children }: NotificationProviderProps) => {
   const [unreadCount, setUnreadCount] = useState(0);
+  const { isAuthenticated } = useContext(AuthContext);
 
-  // Fetch notification count on mount and every minute
+  // Fetch notification count on mount and every minute, but only if authenticated
   useEffect(() => {
-    refreshCount();
-    
-    // Set up an interval to periodically check for new notifications
-    const intervalId = setInterval(refreshCount, 60000); // every minute
-    
-    return () => clearInterval(intervalId);
-  }, []);
+    // Only set up notifications if the user is logged in
+    if (isAuthenticated()) {
+      refreshCount();
+      
+      // Set up an interval to periodically check for new notifications
+      const intervalId = setInterval(refreshCount, 60000); // every minute
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [isAuthenticated]);
 
   // Function to refresh the notification count
   const refreshCount = async () => {
     try {
-      const response = await getUnreadCount();
-      setUnreadCount(response.data.count);
+      // Only fetch notifications if user is authenticated
+      if (isAuthenticated()) {
+        const response = await getUnreadCount();
+        setUnreadCount(response.data.count);
+      }
     } catch (error) {
       console.error('Failed to fetch notification count:', error);
     }

@@ -22,6 +22,7 @@ import {
   sendMessage,
   // markConversationAsRead, // Commented out as endpoint doesn't exist
 } from '../services/api';
+import { navigateToUserProfile } from '../utils/navigation';
 
 interface RouteParams {
   conversationId: number;
@@ -50,10 +51,10 @@ const ConversationScreen = () => {
   const [error, setError] = useState<string | null>(null);
   
   const flatListRef = useRef<FlatList>(null);
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation();
+  const { user: currentUser } = useContext(AuthContext);
   const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const { conversationId, recipientId, recipientName, recipientImage, eventId, eventTitle } = route.params;
-  const { user } = useContext(AuthContext);
   
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -149,7 +150,7 @@ const ConversationScreen = () => {
   };
   
   const renderMessageItem = ({ item }: { item: Message }) => {
-    const isMyMessage = item.sender_id === user?.id;
+    const isMyMessage = item.sender_id === currentUser?.id;
     
     return (
       <View style={[
@@ -175,6 +176,10 @@ const ConversationScreen = () => {
         </Text>
       </View>
     );
+  };
+  
+  const handleUserProfilePress = () => {
+    navigateToUserProfile(navigation, recipientId, currentUser?.id);
   };
   
   if (isLoading) {
@@ -210,7 +215,7 @@ const ConversationScreen = () => {
           
           <TouchableOpacity 
             style={styles.headerInfo}
-            onPress={() => navigation.navigate('UserProfile', { userId: recipientId })}
+            onPress={handleUserProfilePress}
           >
             <Image 
               source={recipientImage ? { uri: recipientImage } : require('../assets/images/default-avatar.png')} 

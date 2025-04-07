@@ -14,10 +14,13 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { AuthContext } from '../context/AuthContext';
 import { getConversations } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ProfileStackParamList, MessagesStackParamList } from '../navigation/AppNavigator';
+import { navigateToUserProfile } from '../utils/navigation';
 
 interface Conversation {
   id: number;
@@ -41,17 +44,19 @@ const MessagesScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const navigation = useNavigation<any>();
-  const { user } = useContext(AuthContext);
+  const navigation = useNavigation();
+  const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+  const { user: currentUser } = useContext(AuthContext);
   
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!user) {
+    if (!currentUser) {
+      // @ts-ignore - Ignoring type error for this navigation
       navigation.replace('Login');
     } else {
       fetchConversations();
     }
-  }, [user, navigation]);
+  }, [currentUser, navigation]);
   
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -113,20 +118,30 @@ const MessagesScreen = () => {
     }
   };
   
+  const handleUserProfilePress = (userId: number) => {
+    navigateToUserProfile(navigation, userId, currentUser?.id);
+  };
+  
   const renderConversationItem = ({ item }: { item: Conversation }) => (
     <TouchableOpacity 
       style={styles.conversationCard}
-      onPress={() => navigation.navigate('Conversation', { 
-        conversationId: item.id,
-        recipientId: item.recipient_id,
-        recipientName: item.full_name,
-        recipientImage: item.profile_image,
-        eventId: item.event_id,
-        eventTitle: item.event_title
-      })}
+      onPress={() => {
+        // @ts-ignore - Ignoring type error for this navigation
+        navigation.navigate('Conversation', { 
+          id: item.id,
+          recipientId: item.recipient_id,
+          recipientName: item.full_name,
+          recipientImage: item.profile_image,
+          eventId: item.event_id,
+          eventTitle: item.event_title
+        });
+      }}
     >
       <View style={styles.conversationLeft}>
-        <View style={styles.avatarContainer}>
+        <TouchableOpacity 
+          style={styles.avatarContainer}
+          onPress={() => handleUserProfilePress(item.recipient_id)}
+        >
           <Image 
             source={item.profile_image ? { uri: item.profile_image } : require('../assets/images/default-avatar.png')} 
             style={styles.userAvatar} 
@@ -136,11 +151,13 @@ const MessagesScreen = () => {
               <Text style={styles.badgeText}>{item.unread_count}</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
         
         <View style={styles.messagePreview}>
           <View style={styles.conversationHeader}>
-            <Text style={styles.userName}>{item.full_name}</Text>
+            <TouchableOpacity onPress={() => handleUserProfilePress(item.recipient_id)}>
+              <Text style={styles.userName}>{item.full_name}</Text>
+            </TouchableOpacity>
             <Text style={styles.messageTime}>{formatMessageTime(item.last_message_time)}</Text>
           </View>
           

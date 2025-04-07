@@ -536,7 +536,8 @@ export const bookmarkEvent = async (req: Request, res: Response): Promise<void> 
       
       res.status(200).json({
         message: 'Event removed from bookmarks',
-        bookmarked: false
+        bookmarked: false,
+        is_bookmarked: false
       });
       return;
     }
@@ -549,7 +550,8 @@ export const bookmarkEvent = async (req: Request, res: Response): Promise<void> 
     
     res.status(200).json({
       message: 'Event bookmarked',
-      bookmarked: true
+      bookmarked: true,
+      is_bookmarked: true
     });
   } catch (error) {
     console.error('Bookmark event error:', error);
@@ -562,7 +564,7 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { content, parentCommentId } = req.body;
+    const { content, parent_comment_id } = req.body;
     
     if (!content || !content.trim()) {
       res.status(400).json({ message: 'Comment content is required' });
@@ -587,10 +589,10 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
     );
     
     // If parentCommentId is provided, check if it exists and belongs to this event
-    if (parentCommentId) {
+    if (parent_comment_id) {
       const parentComment = await getAsync(
         'SELECT id, user_id FROM comments WHERE id = ? AND event_id = ?',
-        [parentCommentId, id]
+        [parent_comment_id, id]
       );
       
       if (!parentComment) {
@@ -615,7 +617,7 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
     // Add comment
     const result = await runAsync(
       'INSERT INTO comments (event_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)',
-      [id, userId, content, parentCommentId || null]
+      [id, userId, content, parent_comment_id || null]
     );
     
     // Send notification to event creator (if not the commenter)

@@ -25,6 +25,9 @@ import theme, { getGradient } from '../theme/theme';
 import Card from '../components/Card';
 import { toGradientTuple } from '../utils/gradientUtils';
 
+import { LinearGradient } from 'expo-linear-gradient';
+
+
 const { width } = Dimensions.get('window');
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;

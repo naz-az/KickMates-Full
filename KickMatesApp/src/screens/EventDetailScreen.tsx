@@ -32,7 +32,7 @@ import {
   deleteComment
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { EventsStackParamList } from '../navigation/AppNavigator';
+import { EventsStackParamList, ProfileStackParamList } from '../navigation/AppNavigator';
 import Button from '../components/Button';
 import Comment, { CommentType } from '../components/Comment';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +42,8 @@ import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import Card from '../components/Card';
 import { getSportGradient } from '../theme/theme';
+import { navigateToUserProfile as navigateToProfile } from '../utils/navigation';
+import { useToast } from '../context/ToastContext';
 
 type EventDetailScreenRouteProp = RouteProp<EventsStackParamList, 'EventDetail'>;
 type EventDetailScreenNavigationProp = NativeStackNavigationProp<EventsStackParamList, 'EditEvent'>;
@@ -85,10 +87,13 @@ const EventDetailScreen = () => {
   
   const route = useRoute<EventDetailScreenRouteProp>();
   const navigation = useNavigation<EventDetailScreenNavigationProp>();
+  const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user } = useContext(AuthContext);
+  const { showToast } = useToast();
   
   const { id } = route.params;
-
+  const isBookmarkingRef = useRef(false);
+  
   useEffect(() => {
     fetchEventDetails();
   }, [id]);
@@ -250,13 +255,47 @@ const EventDetailScreen = () => {
   };
   
   const handleBookmarkEvent = async () => {
+    // Prevent multiple rapid clicks
+    if (isBookmarkingRef.current) {
+      console.log('[EventDetail] Bookmark operation already in progress, ignoring click');
+      return;
+    }
+    
     try {
-      const response = await bookmarkEvent(id);
+      isBookmarkingRef.current = true;
+      console.log(`[EventDetail] Attempting to toggle bookmark for event #${id}`);
+      
+      // Optimistically update UI for immediate feedback
       setIsBookmarked(!isBookmarked);
-      Alert.alert('Success', isBookmarked ? 'Event removed from bookmarks' : 'Event added to bookmarks');
+      
+      // Add a small delay to debounce and prevent accidental double clicks
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const response = await bookmarkEvent(id);
+      console.log(`[EventDetail] Bookmark API response:`, response.data);
+      
+      // Update state based on server response (use is_bookmarked or bookmarked field)
+      const serverBookmarkState = response.data.is_bookmarked ?? response.data.bookmarked;
+      setIsBookmarked(serverBookmarkState);
+      
+      // Show toast notification
+      showToast(
+        serverBookmarkState ? 'Event added to bookmarks' : 'Event removed from bookmarks',
+        'success'
+      );
     } catch (error) {
       console.error('Error bookmarking event:', error);
-      Alert.alert('Error', 'Failed to update bookmark. Please try again.');
+      
+      // Revert UI state on error
+      setIsBookmarked(!isBookmarked);
+      
+      // Show error toast
+      showToast('Failed to update bookmark. Please try again.', 'error');
+    } finally {
+      // Reset bookmarking state
+      setTimeout(() => {
+        isBookmarkingRef.current = false;
+      }, 500);
     }
   };
   
@@ -286,12 +325,7 @@ const EventDetailScreen = () => {
     
     setIsPostingComment(true);
     try {
-      await addComment({
-        targetId: id,
-        targetType: 'event',
-        content: newComment.trim(),
-        parentId: null
-      });
+      await addComment(id, newComment.trim());
       
       setNewComment('');
       await fetchEventDetails();
@@ -305,12 +339,7 @@ const EventDetailScreen = () => {
   
   const handleReplyToComment = async (parentId: number, content: string) => {
     try {
-      await addComment({
-        targetId: id,
-        targetType: 'event',
-        content: content.trim(),
-        parentId
-      });
+      await addComment(id, content.trim(), parentId);
       
       await fetchEventDetails();
       return true;
@@ -322,13 +351,46 @@ const EventDetailScreen = () => {
   };
   
   const handleDeleteComment = async (commentId: number) => {
+    console.log(`[EventDetail] Starting comment deletion for comment #${commentId} in event #${id}`);
     try {
-      await deleteComment(commentId);
-      await fetchEventDetails();
+      console.log(`[EventDetail] Calling API deleteComment with eventId: ${id}, commentId: ${commentId.toString()}`);
+      const response = await deleteComment(id, commentId.toString());
+      console.log(`[EventDetail] Delete comment API response:`, response?.status, response?.data);
+      
+      // First, optimistically update the UI by removing the comment from the local state
+      setComments(prevComments => {
+        // Filter out the deleted comment and its replies
+        const filteredComments = prevComments.filter(comment => {
+          // Remove the comment itself and any replies to it 
+          return comment.id !== commentId;
+        });
+        
+        // Also remove any comment that's a direct reply to the deleted comment
+        filteredComments.forEach(comment => {
+          if (comment.replies) {
+            comment.replies = comment.replies.filter(reply => reply.id !== commentId);
+          }
+        });
+        
+        return filteredComments;
+      });
+      
+      // Then refresh from the server to ensure everything is in sync
+      console.log(`[EventDetail] Refreshing event details after comment deletion`);
+      // Add a small delay to ensure the server has processed the deletion
+      setTimeout(async () => {
+        await fetchEventDetails();
+        console.log(`[EventDetail] Event details refreshed successfully`);
+      }, 500);
+      
       return true;
     } catch (error) {
-      console.error('Error deleting comment:', error);
-      Alert.alert('Error', 'Failed to delete comment. Please try again.');
+      console.error('[EventDetail] Error deleting comment:', error);
+      if (Platform.OS === 'web') {
+        alert('Failed to delete comment. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to delete comment. Please try again.');
+      }
       return false;
     }
   };
@@ -344,6 +406,10 @@ const EventDetailScreen = () => {
   const formatEventDate = (dateString: string): string => {
     const date = new Date(dateString);
     return format(date, 'EEEE, MMMM do, yyyy • h:mm a');
+  };
+  
+  const navigateToUserProfile = (userId: number) => {
+    navigateToProfile(navigation, userId, user?.id);
   };
   
   const renderJoinButton = () => {
@@ -384,6 +450,7 @@ const EventDetailScreen = () => {
           variant="outline"
           icon={<Ionicons name="people-outline" size={18} color="#94A3B8" />}
           fullWidth={true}
+          onPress={() => {}}
         />
       );
     }
@@ -491,10 +558,12 @@ const EventDetailScreen = () => {
               <TouchableOpacity 
                 style={styles.floatingActionButton}
                 onPress={handleBookmarkEvent}
+                hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
+                activeOpacity={0.7}
               >
                 <Ionicons 
                   name={isBookmarked ? "bookmark" : "bookmark-outline"} 
-                  size={22} 
+                  size={24} 
                   color="#FFFFFF" 
                 />
               </TouchableOpacity>
@@ -571,7 +640,10 @@ const EventDetailScreen = () => {
             {creator && (
               <View style={styles.hostInfo}>
                 <Text style={styles.hostedByText}>Hosted by</Text>
-                <TouchableOpacity style={styles.hostProfile}>
+                <TouchableOpacity 
+                  style={styles.hostProfile}
+                  onPress={() => creator.id && navigateToUserProfile(creator.id)}
+                >
                   <Avatar
                     source={creator.profile_image ? { uri: creator.profile_image } : null}
                     name={creator.username}
@@ -667,7 +739,11 @@ const EventDetailScreen = () => {
             <View style={styles.participantsList}>
               {event.participants && event.participants.length > 0 ? (
                 event.participants.slice(0, 5).map((participant: any, index: number) => (
-                  <View key={participant.user_id} style={styles.participantItem}>
+                  <TouchableOpacity 
+                    key={participant.user_id} 
+                    style={styles.participantItem}
+                    onPress={() => navigateToUserProfile(participant.user_id)}
+                  >
                     <Avatar
                       source={participant.profile_image ? { uri: participant.profile_image } : null}
                       name={participant.username}
@@ -676,7 +752,7 @@ const EventDetailScreen = () => {
                       gradientColors={sportGradient}
                     />
                     <Text style={styles.participantName}>{participant.username}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ))
               ) : (
                 <Text style={styles.noParticipantsText}>No participants yet</Text>
@@ -741,7 +817,9 @@ const EventDetailScreen = () => {
                   targetId={id}
                   targetType="event"
                   onDelete={handleDeleteComment}
-                  onAddReply={handleReplyToComment}
+                  onAddReply={async (parentId, content) => {
+                    await handleReplyToComment(parentId, content);
+                  }}
                   replies={comment.replies || []}
                 />
               ))
@@ -862,13 +940,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   floatingActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
+    width: 42,
+    height: 42,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 21,
     alignItems: 'center',
-    marginLeft: 12,
+    justifyContent: 'center',
+    marginLeft: 8,
+    zIndex: 10,
   },
   contentContainer: {
     borderTopLeftRadius: 24,

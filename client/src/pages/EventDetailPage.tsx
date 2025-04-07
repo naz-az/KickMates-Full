@@ -25,6 +25,7 @@ const EventDetailPage = () => {
   const [replyToComment, setReplyToComment] = useState<{id: number, username: string} | null>(null);
   const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
 
   // Add a function to get bookmark key for local storage
   const getBookmarkKey = useCallback((eventId: string, userId?: number) => {
@@ -38,7 +39,7 @@ const EventDetailPage = () => {
       const cachedBookmark = localStorage.getItem(bookmarkKey);
       if (cachedBookmark) {
         setIsBookmarked(cachedBookmark === 'true');
-        console.log("Loaded bookmark state from cache:", cachedBookmark === 'true');
+        // console.log("Loaded bookmark state from cache:", cachedBookmark === 'true');
       }
     }
   }, [id, user, getBookmarkKey]);
@@ -48,9 +49,9 @@ const EventDetailPage = () => {
   }, [id]);
 
   // Add a debug effect to log when participation status changes
-  useEffect(() => {
-    console.log("Participation status changed to:", participationStatus);
-  }, [participationStatus]);
+  // useEffect(() => {
+    // console.log("Participation status changed to:", participationStatus);
+  // }, [participationStatus]);
 
   const fetchEventDetails = async () => {
     setIsLoading(true);
@@ -59,22 +60,22 @@ const EventDetailPage = () => {
     try {
       console.log("Fetching event details for ID:", id);
       const token = localStorage.getItem('token');
-      console.log("Using auth token:", token ? "Present" : "Missing");
+      // console.log("Using auth token:", token ? "Present" : "Missing");
       
       const response = await getEventById(id!);
       console.log("Raw API response:", response);
       
       const { event, participants, comments, isBookmarked: serverBookmarked, participationStatus } = response.data;
       
-      console.log("Received event details. Server bookmark status:", serverBookmarked);
+      // console.log("Received event details. Server bookmark status:", serverBookmarked);
       
       // Check if the user is in the participants array for debugging
       if (user) {
         const userInParticipants = participants.some((p: any) => p.user_id === user.id);
-        console.log("User found in participants array:", userInParticipants);
+        // console.log("User found in participants array:", userInParticipants);
         if (userInParticipants) {
           const userParticipation = participants.find((p: any) => p.user_id === user.id);
-          console.log("User participation details from array:", userParticipation);
+          // console.log("User participation details from array:", userParticipation);
         }
         
         // Check localStorage for bookmark state
@@ -82,7 +83,7 @@ const EventDetailPage = () => {
         const cachedBookmark = localStorage.getItem(bookmarkKey);
         
         if (cachedBookmark !== null) {
-          console.log("Local bookmark cache:", cachedBookmark);
+          // console.log("Local bookmark cache:", cachedBookmark);
           // If server and local storage disagree, prefer local storage but update server silently
           const localBookmarked = cachedBookmark === 'true';
           if (serverBookmarked !== localBookmarked) {
@@ -92,7 +93,7 @@ const EventDetailPage = () => {
             // Silently sync with server (no await to not block rendering)
             try {
               bookmarkEvent(id!).then(response => {
-                console.log("Silent bookmark sync response:", response.data);
+                // console.log("Silent bookmark sync response:", response.data);
                 // Update local storage with latest server value
                 localStorage.setItem(bookmarkKey, String(response.data.bookmarked));
               });
@@ -118,7 +119,7 @@ const EventDetailPage = () => {
       setComments(comments);
       setParticipationStatus(participationStatus);
       
-      console.log("Updated state with participation status:", participationStatus);
+      // console.log("Updated state with participation status:", participationStatus);
       
       // If participationStatus is null but the user is in the participants array
       // This is a workaround for backend inconsistency 
@@ -230,11 +231,7 @@ const EventDetailPage = () => {
   };
 
   const handleLeaveEvent = async () => {
-    // Add confirmation dialog
-    if (!window.confirm('Are you sure you want to leave this event?')) {
-      return;
-    }
-    
+    // Remove confirmation dialog since it's now handled by the LeaveButton component
     console.log("Attempting to leave event with ID:", id);
     
     try {
@@ -532,29 +529,72 @@ const EventDetailPage = () => {
   };
 
   const LeaveButton = () => {
-    console.log("Rendering LeaveButton. Status:", participationStatus);
+    // console.log("Rendering LeaveButton. Status:", participationStatus);
+    
+    const openLeaveModal = () => {
+      setShowLeaveModal(true);
+    };
+
+    const confirmLeave = () => {
+      handleLeaveEvent();
+      setShowLeaveModal(false);
+    };
+    
     return (
-      <button 
-        onClick={handleLeaveEvent}
-        className={`btn ${participationStatus === 'confirmed' ? 'btn-success' : 'btn-warning'} leave-btn`}
-        title="Click to leave this event"
-      >
-        {participationStatus === 'confirmed' ? (
-          <>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Joined - Click to Leave
-          </>
-        ) : (
-          <>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            On Waiting List - Click to Leave
-          </>
+      <>
+        <button 
+          onClick={openLeaveModal}
+          className="btn bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md shadow-sm border border-green-700"
+          title={participationStatus === 'confirmed' ? 'You are confirmed for this event' : 'You are on the waiting list'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Joining
+        </button>
+
+        {/* Leave Event Confirmation Modal */}
+        {showLeaveModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+            <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-red-700">Leave Event</h3>
+                <button 
+                  onClick={() => setShowLeaveModal(false)}
+                  className="text-gray-500 hover:text-gray-800"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-gray-800 mb-4">
+                  Are you sure you want to leave this event? {participationStatus === 'confirmed' && 'Your spot may be given to someone on the waiting list.'}
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmLeave}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Leave Event
+                </button>
+              </div>
+            </div>
+          </div>
         )}
-      </button>
+      </>
     );
   };
 
@@ -564,11 +604,11 @@ const EventDetailPage = () => {
   const waitingParticipants = participants.filter(p => p.status === 'waiting');
 
   // Add an effect to log participants changes for debugging
-  useEffect(() => {
-    console.log("Participants updated:", participants);
-    console.log("Confirmed participants:", confirmedParticipants);
-    console.log("Waiting participants:", waitingParticipants);
-  }, [participants]);
+  // useEffect(() => {
+    // console.log("Participants updated:", participants);
+    // console.log("Confirmed participants:", confirmedParticipants);
+    // console.log("Waiting participants:", waitingParticipants);
+  // }, [participants]);
 
   // Helper function to determine if the user is a participant based on participants array
   const isParticipant = () => {

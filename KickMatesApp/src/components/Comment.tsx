@@ -7,6 +7,8 @@ import {
   TouchableOpacity, 
   Alert,
   ActivityIndicator,
+  Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,6 +16,8 @@ import { voteComment, deleteComment, voteDiscussionComment, deleteDiscussionComm
 import { AuthContext } from '../context/AuthContext';
 import Button from './Button';
 import Input from './Input';
+import { useNavigation } from '@react-navigation/native';
+import { navigateToUserProfile } from '../utils/navigation';
 
 interface User {
   id: number;
@@ -57,6 +61,7 @@ const Comment: React.FC<CommentProps> = ({
   onAddReply,
 }) => {
   const { user: currentUser } = React.useContext(AuthContext);
+  const navigation = useNavigation();
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [showReplies, setShowReplies] = useState(replies.length < 3);
@@ -65,9 +70,14 @@ const Comment: React.FC<CommentProps> = ({
   const [currentDownvotes, setCurrentDownvotes] = useState(downvotes);
   const [loading, setLoading] = useState(false);
   const [replyLoading, setReplyLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const isOwnComment = currentUser?.id === user?.id;
   const hasReplies = replies && replies.length > 0;
+
+  const handleProfilePress = () => {
+    navigateToUserProfile(navigation, user.id, currentUser?.id);
+  };
 
   const handleVote = async (voteType: 'up' | 'down') => {
     setLoading(true);
@@ -115,38 +125,67 @@ const Comment: React.FC<CommentProps> = ({
     console.log(`[COMMENT DEBUG] Delete button clicked for comment ID: ${id}, user: ${user.username}`);
     console.log(`[COMMENT DEBUG] Has onDelete callback: ${!!onDelete}, targetId: ${targetId}, targetType: ${targetType}`);
     
-    // Use a setTimeout to ensure the Alert is displayed properly
-    setTimeout(() => {
-      Alert.alert(
-        `Delete Comment #${id}`,
-        `Are you sure you want to delete this comment?\n\nComment ID: ${id}\nUser: ${user.username}`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'YES, DELETE IT', 
-            style: 'destructive', 
-            onPress: async () => {
-              console.log(`[COMMENT DEBUG] Delete confirmed for comment ID: ${id}`);
-              setLoading(true);
-              try {
-                if (onDelete) {
-                  console.log(`[COMMENT DEBUG] Calling onDelete callback with ID: ${id}`);
-                  await onDelete(id);
-                  console.log(`[COMMENT DEBUG] onDelete callback completed successfully`);
-                } else {
-                  console.error(`[COMMENT DEBUG] No onDelete callback provided!`);
+    // Check if running on web
+    const isWeb = Platform.OS === 'web';
+    
+    if (isWeb) {
+      // Show custom web modal instead of default browser alert
+      setShowDeleteModal(true);
+    } else {
+      // Use a setTimeout to ensure the Alert is displayed properly on mobile
+      setTimeout(() => {
+        Alert.alert(
+          `Delete Comment #${id}`,
+          `Are you sure you want to delete this comment?\n\nComment ID: ${id}\nUser: ${user.username}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'YES, DELETE IT', 
+              style: 'destructive', 
+              onPress: async () => {
+                console.log(`[COMMENT DEBUG] Delete confirmed for comment ID: ${id}`);
+                setLoading(true);
+                try {
+                  if (onDelete) {
+                    console.log(`[COMMENT DEBUG] Calling onDelete callback with ID: ${id}`);
+                    await onDelete(id);
+                    console.log(`[COMMENT DEBUG] onDelete callback completed successfully`);
+                  } else {
+                    console.error(`[COMMENT DEBUG] No onDelete callback provided!`);
+                  }
+                } catch (error) {
+                  console.error(`[COMMENT DEBUG] Error in handleDelete:`, error);
+                  Alert.alert('Error', 'Failed to delete comment. Please try again.');
+                } finally {
+                  setLoading(false);
                 }
-              } catch (error) {
-                console.error(`[COMMENT DEBUG] Error in handleDelete:`, error);
-                Alert.alert('Error', 'Failed to delete comment. Please try again.');
-              } finally {
-                setLoading(false);
-              }
-            } 
-          },
-        ]
-      );
-    }, 300);
+              } 
+            },
+          ]
+        );
+      }, 300);
+    }
+  };
+
+  const confirmDelete = async () => {
+    console.log(`[COMMENT DEBUG] Delete confirmed for comment ID: ${id}`);
+    setLoading(true);
+    try {
+      if (onDelete) {
+        console.log(`[COMMENT DEBUG] Calling onDelete callback with ID: ${id}`);
+        await onDelete(id);
+        console.log(`[COMMENT DEBUG] onDelete callback completed successfully`);
+      } else {
+        console.error(`[COMMENT DEBUG] No onDelete callback provided!`);
+      }
+    } catch (error) {
+      console.error(`[COMMENT DEBUG] Error in handleDelete:`, error);
+      // Use a more elegant approach than alert for web
+      console.error('Failed to delete comment. Please try again.');
+    } finally {
+      setLoading(false);
+      setShowDeleteModal(false);
+    }
   };
 
   const handleReply = () => {
@@ -183,7 +222,7 @@ const Comment: React.FC<CommentProps> = ({
   return (
     <View style={[styles.container, parentId ? styles.replyContainer : null]}>
       <View style={styles.headerContainer}>
-        <View style={styles.userInfo}>
+        <TouchableOpacity style={styles.userInfo} onPress={handleProfilePress}>
           {user.profile_image ? (
             <Image source={{ uri: user.profile_image }} style={styles.avatar} />
           ) : (
@@ -195,11 +234,14 @@ const Comment: React.FC<CommentProps> = ({
             <Text style={styles.username}>{user.username}</Text>
             <Text style={styles.timestamp}>{formatDate(createdAt)}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {isOwnComment && (
           <TouchableOpacity onPress={handleDelete} disabled={loading}>
-            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+            <View style={styles.deleteButtonContainer}>
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              {loading && <ActivityIndicator size="small" color="#EF4444" style={styles.deleteLoader} />}
+            </View>
           </TouchableOpacity>
         )}
       </View>
@@ -325,6 +367,56 @@ const Comment: React.FC<CommentProps> = ({
             />
           ))}
         </View>
+      )}
+
+      {/* Custom Web Delete Modal */}
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={showDeleteModal}
+          transparent={true}
+          animationType="fade"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="trash-outline" size={28} color="#EF4444" />
+                <Text style={styles.modalTitle}>Delete Comment</Text>
+              </View>
+              
+              <Text style={styles.modalMessage}>
+                Are you sure you want to delete this comment?
+              </Text>
+              
+              <Text style={styles.modalDetail}>
+                Comment ID: {id}
+              </Text>
+              <Text style={styles.modalDetail}>
+                User: {user.username}
+              </Text>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity 
+                  style={styles.modalCancelButton} 
+                  onPress={() => setShowDeleteModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.deleteButton} 
+                  onPress={confirmDelete}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.deleteButtonText}>DELETE</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -473,6 +565,83 @@ const styles = StyleSheet.create({
   },
   repliesContainer: {
     marginTop: 8,
+  },
+  deleteButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deleteLoader: {
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginLeft: 12,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#4B5563',
+    marginBottom: 16,
+  },
+  modalDetail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 24,
+  },
+  modalCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

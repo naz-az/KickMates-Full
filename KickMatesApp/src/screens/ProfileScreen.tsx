@@ -31,6 +31,7 @@ import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import { BlurView } from 'expo-blur';
 import { toGradientTuple } from '../utils/gradientUtils';
+import { useToast } from '../context/ToastContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const ProfileScreen = () => {
   
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { user, logout } = useContext(AuthContext);
+  const { showToast } = useToast();
   
   useEffect(() => {
     loadProfileData();
@@ -99,7 +101,20 @@ const ProfileScreen = () => {
       
       setProfileData(responses[0].data.user);
       setUserEvents(responses[1].data.events);
-      setUserBookmarks(responses[2].data.events);
+      
+      // Fix bookmarks data access - server returns bookmarkedEvents
+      if (responses[2].data.bookmarkedEvents) {
+        setUserBookmarks(responses[2].data.bookmarkedEvents);
+      } else {
+        console.error('[DEBUG] Unexpected bookmarks response format:', responses[2].data);
+        setUserBookmarks([]);
+      }
+      
+      console.log('[DEBUG] Profile data loaded:', {
+        profileDataLoaded: !!responses[0].data.user,
+        userEventsCount: responses[1].data.events?.length || 0,
+        userBookmarksCount: responses[2].data.bookmarkedEvents?.length || 0
+      });
     } catch (error) {
       console.error('Error loading profile data:', error);
       Alert.alert('Error', 'Failed to load profile data. Please try again.');
@@ -144,7 +159,7 @@ const ProfileScreen = () => {
     try {
       await uploadProfileImage(uri);
       await loadProfileData();
-      Alert.alert('Success', 'Profile picture updated successfully!');
+      showToast('Profile picture updated successfully!', 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
       Alert.alert('Error', 'Failed to upload image. Please try again.');

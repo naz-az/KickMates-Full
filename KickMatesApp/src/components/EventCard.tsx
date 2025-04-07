@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -13,9 +13,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { EventsStackParamList } from '../navigation/AppNavigator';
+import { EventsStackParamList, ProfileStackParamList } from '../navigation/AppNavigator';
 import { formatDistance } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AuthContext } from '../context/AuthContext';
+import { navigateToUserProfile } from '../utils/navigation';
 
 type EventCardNavigationProp = NativeStackNavigationProp<EventsStackParamList, 'EventDetail'>;
 
@@ -35,18 +37,31 @@ interface EventCardProps {
       username: string;
       profile_image?: string;
     };
+    bookmarked_by_user?: boolean;
   };
   compact?: boolean;
   index?: number;
+  onPress?: () => void;
+  onBookmarkPress?: () => void;
+  showBookmarkButton?: boolean;
 }
 
 // Default placeholder image when no other images are available
-const DEFAULT_IMAGE = 'https://via.placeholder.com/400x300?text=Sport+Event';
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1547347298-4074fc3086f0?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-const EventCard: React.FC<EventCardProps> = ({ event, compact = false, index = 0 }) => {
-  const navigation = useNavigation<EventCardNavigationProp>();
-  const animatedScale = React.useRef(new Animated.Value(1)).current;
+const EventCard: React.FC<EventCardProps> = ({ 
+  event, 
+  compact = false, 
+  index = 0,
+  onPress,
+  onBookmarkPress,
+  showBookmarkButton = false
+}) => {
+  const navigation = useNavigation<NativeStackNavigationProp<EventsStackParamList>>();
+  const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+  const { user: currentUser } = useContext(AuthContext);
+  const animatedScale = useRef(new Animated.Value(1)).current;
   
   // Staggered animation for list items
   React.useEffect(() => {
@@ -80,7 +95,17 @@ const EventCard: React.FC<EventCardProps> = ({ event, compact = false, index = 0
   };
   
   const handlePress = () => {
-    navigation.navigate('EventDetail', { id: event.id });
+    if (onPress) {
+      onPress();
+    } else {
+      navigation.navigate('EventDetail', { id: event.id.toString() });
+    }
+  };
+  
+  const handleCreatorPress = () => {
+    if (event.creator) {
+      navigateToUserProfile(navigation, event.creator.id, currentUser?.id);
+    }
   };
   
   const renderSportIcon = () => {
@@ -234,6 +259,21 @@ const EventCard: React.FC<EventCardProps> = ({ event, compact = false, index = 0
               colors={['transparent', 'rgba(0,0,0,0.7)']}
               style={styles.compactImageOverlay}
             />
+            
+            {showBookmarkButton && (
+              <TouchableOpacity 
+                style={styles.bookmarkButton}
+                onPress={onBookmarkPress}
+                hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={event.bookmarked_by_user ? "bookmark" : "bookmark-outline"} 
+                  size={22} 
+                  color="#FFFFFF" 
+                />
+              </TouchableOpacity>
+            )}
           </View>
           <View style={styles.compactContent}>
             <View style={styles.compactSportBadge}>
@@ -278,6 +318,21 @@ const EventCard: React.FC<EventCardProps> = ({ event, compact = false, index = 0
                 {renderSportIcon()}
                 <Text style={styles.sportText}>{event.sport_type}</Text>
               </View>
+              
+              {showBookmarkButton && (
+                <TouchableOpacity 
+                  style={styles.bookmarkButtonFull}
+                  onPress={onBookmarkPress}
+                  hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name={event.bookmarked_by_user ? "bookmark" : "bookmark-outline"} 
+                    size={24} 
+                    color="#FFFFFF" 
+                  />
+                </TouchableOpacity>
+              )}
             </View>
             <View style={styles.bottomOverlayContent}>
               <Text style={styles.title}>{event.title}</Text>
@@ -312,7 +367,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, compact = false, index = 0
           </View>
           
           {event.creator && (
-            <View style={styles.creatorInfo}>
+            <TouchableOpacity style={styles.creatorInfo} onPress={handleCreatorPress}>
               {event.creator.profile_image ? (
                 <Image source={{ uri: event.creator.profile_image }} style={styles.creatorImage} />
               ) : (
@@ -330,7 +385,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, compact = false, index = 0
               <Text style={styles.creatorName}>
                 by {event.creator && event.creator.username ? event.creator.username : 'Unknown'}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
       </TouchableOpacity>
@@ -539,6 +594,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginLeft: 4,
+  },
+  bookmarkButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 10,
+    zIndex: 10,
+  },
+  bookmarkButtonFull: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 10,
+    zIndex: 10,
   },
 });
 

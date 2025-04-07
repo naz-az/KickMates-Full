@@ -1,13 +1,17 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable, Alert, TouchableOpacity } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import { getUnreadCount } from '../services/api';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ProfileStackParamList } from '../navigation/AppNavigator';
 
 const CustomDrawerContent = (props: any) => {
   const { user, logout } = useContext(AuthContext);
   const [unreadCount, setUnreadCount] = useState(0);
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 
   useEffect(() => {
     fetchUnreadCount();
@@ -32,11 +36,16 @@ const CustomDrawerContent = (props: any) => {
       ]
     );
   };
+  
+  const navigateToProfile = () => {
+    navigation.navigate('Profile');
+    props.navigation.closeDrawer();
+  };
 
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <View style={styles.userInfo}>
+        <TouchableOpacity style={styles.userInfo} onPress={navigateToProfile}>
           {user?.profile_image ? (
             <Image 
               source={{ uri: user.profile_image }}
@@ -53,7 +62,7 @@ const CustomDrawerContent = (props: any) => {
             <Text style={styles.userName}>{user?.full_name || user?.username}</Text>
             <Text style={styles.userEmail}>{user?.email}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.drawerContent}>

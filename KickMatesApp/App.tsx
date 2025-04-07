@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
 import { AuthProvider } from './src/context/AuthContext';
+import { ToastProvider } from './src/context/ToastContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
@@ -69,20 +70,22 @@ export default function App() {
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
         <AuthProvider>
-          <NavigationContainer theme={{
-            dark: false,
-            colors: {
-              primary: theme.colors.primary,
-              background: theme.colors.background,
-              card: theme.colors.card,
-              text: theme.colors.text,
-              border: theme.colors.border,
-              notification: theme.colors.notification,
-            }
-          }}>
-            <StatusBar style="auto" />
-            <AppNavigator />
-          </NavigationContainer>
+          <ToastProvider>
+            <NavigationContainer theme={{
+              dark: false,
+              colors: {
+                primary: theme.colors.primary,
+                background: theme.colors.background,
+                card: theme.colors.card,
+                text: theme.colors.text,
+                border: theme.colors.border,
+                notification: theme.colors.notification,
+              }
+            }}>
+              <StatusBar style="auto" />
+              <AppNavigator />
+            </NavigationContainer>
+          </ToastProvider>
         </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>

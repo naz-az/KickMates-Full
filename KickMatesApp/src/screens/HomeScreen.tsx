@@ -16,7 +16,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { EventsStackParamList } from '../navigation/AppNavigator';
@@ -141,25 +141,30 @@ const HomeScreen = () => {
     setError(null);
     
     try {
-      console.log('[HOME] Attempting to fetch events from API...');
+      // console.log('[HOME] Attempting to fetch events from API...');
       const res = await getEvents({ limit: 4 });
       setFeaturedEvents(res.data.events || []);
-      console.log('[HOME] Events fetched successfully!');
+      // console.log('[HOME] Events fetched successfully!');
     } catch (err) {
       console.error('[HOME] Error fetching events:', err);
-      
       // More detailed error logging
-      if (err.message) console.error('[HOME] Error message:', err.message);
-      if (err.response) {
-        console.error('[HOME] Response status:', err.response.status);
-        console.error('[HOME] Response data:', JSON.stringify(err.response.data));
+      if (typeof err === 'object' && err !== null) {
+        if ('message' in err) {
+          console.error('[HOME] Error message:', (err as {message: string}).message);
+        }
+        if ('response' in err && typeof err.response === 'object' && err.response !== null) {
+          const response = err.response as {status?: number; data?: unknown};
+          if (response.status) console.error('[HOME] Response status:', response.status);
+          if (response.data) console.error('[HOME] Response data:', JSON.stringify(response.data));
+        }
       }
       
       // More detailed error message
-      if (err.message && err.message.includes('Network Error')) {
+      if (typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string' && err.message.includes('Network Error')) {
         setError('Cannot connect to server. Please check your internet connection.');
-      } else if (err.response) {
-        setError(`Server error: ${err.response.status} - ${err.response.data?.message || 'Unknown error'}`);
+      } else if (typeof err === 'object' && err !== null && 'response' in err && typeof err.response === 'object' && err.response !== null) {
+        const response = err.response as {status?: number; data?: {message?: string}};
+        setError(`Server error: ${response.status} - ${response.data?.message || 'Unknown error'}`);
       } else {
         setError('Failed to load events. Please try again.');
       }
@@ -175,7 +180,9 @@ const HomeScreen = () => {
   };
   
   const navigateToCreateEvent = () => {
-    navigation.navigate('CreateEvent');
+    navigation.dispatch(
+      CommonActions.navigate('CreateEvent')
+    );
   };
   
   const navigateToEventsList = () => {
@@ -235,25 +242,23 @@ const HomeScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       
-      {/* Animated Header with Blur Effect */}
-      <Animated.View style={[styles.animatedHeader, { opacity: headerOpacity }]}>
-        <BlurView intensity={80} style={styles.blurView}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>KickMates</Text>
-            <TouchableOpacity style={styles.profileButton}>
-              {user?.profile_image ? (
-                <Image source={{ uri: user.profile_image }} style={styles.profileImage} />
-              ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Text style={styles.profileImageText}>
-                    {user?.full_name?.charAt(0) || 'K'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </BlurView>
-      </Animated.View>
+      {/* Fixed Header (always visible) */}
+      <View style={styles.fixedHeader}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>KickMates</Text>
+          <TouchableOpacity style={styles.profileButton}>
+            {user?.profile_image ? (
+              <Image source={{ uri: user.profile_image }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profileImagePlaceholder}>
+                <Text style={styles.profileImageText}>
+                  {user?.full_name?.charAt(0) || 'K'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
       
       <Animated.ScrollView
         style={styles.scrollView}
@@ -262,10 +267,6 @@ const HomeScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
         scrollEventThrottle={16}
       >
         {/* Greeting Section with Animation */}
@@ -274,13 +275,21 @@ const HomeScreen = () => {
             <Text style={styles.greetingText}>Hey{user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}! 👋</Text>
             <Text style={styles.greetingSubtext}>Ready to find teammates?</Text>
           </View>
-          <Button
-            title="Create Event"
+          <TouchableOpacity 
+            style={styles.createEventButtonContainer}
             onPress={navigateToCreateEvent}
-            icon={<Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />}
-            gradient={true}
-            pill={true}
-          />
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#4361EE', '#4CC9F0']}
+              style={styles.createEventGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+              <Text style={styles.createEventText}>Create Event</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Featured Events Section */}
@@ -329,19 +338,28 @@ const HomeScreen = () => {
                 style={styles.noEventsImage}
               />
               <Text style={styles.noEventsText}>No events found. Be the first to create one!</Text>
-              <Button
-                title="Create Event"
+              <TouchableOpacity 
+                style={styles.createEventButtonContainer}
                 onPress={navigateToCreateEvent}
-                style={styles.createEventButton}
-                gradient={true}
-              />
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#4361EE', '#4CC9F0']}
+                  style={styles.createEventGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+                  <Text style={styles.createEventText}>Create Event</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           )}
         </View>
 
         {/* Sport Categories Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Popular Sports</Text>
+          <Text style={styles.popularSportsTitle}>Popular Sports</Text>
           <View style={styles.categoriesWrapper}>
             <FlatList
               data={sportCategories}
@@ -357,7 +375,7 @@ const HomeScreen = () => {
 
         {/* How It Works Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>How KickMates Works</Text>
+          <Text style={styles.howItWorksSectionTitle}>How KickMates Works</Text>
           <View style={styles.stepsContainer}>
             <View style={styles.step}>
               <LinearGradient 
@@ -409,16 +427,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-  },
-  blurView: {
+  fixedHeader: {
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
     width: '100%',
     paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+    zIndex: 10,
   },
   headerContent: {
     flexDirection: 'row',
@@ -458,7 +473,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 24,
     paddingBottom: 32,
   },
   greetingSection: {
@@ -466,7 +480,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingVertical: 16,
+    marginTop: 8,
+    marginBottom: 16,
   },
   greetingText: {
     fontSize: 28,
@@ -479,7 +495,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   sectionContainer: {
-    marginBottom: 32,
+    marginBottom: -10,
     // marginRight: 16,
     // marginLeft: 16,
   },
@@ -495,7 +511,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E293B',
     paddingHorizontal: 16,
+    marginBottom: 10,
+    // marginTop: 16,
+  },
+  popularSportsTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    paddingHorizontal: 16,
     marginBottom: 16,
+    textAlign: 'center',
+
+  },
+  howItWorksSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    paddingHorizontal: 16,
+    marginBottom: 32,
+    marginTop: 32,
+    textAlign: 'center',
   },
   viewAllButton: {
     flexDirection: 'row',
@@ -550,8 +585,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  createEventButton: {
-    marginTop: 8,
+  createEventButtonContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginVertical: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.2)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      }
+    }),
+  },
+  createEventGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  createEventText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   categoriesContainer: {
     paddingHorizontal: 16,
@@ -624,6 +686,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   step: {
     width: '30%',

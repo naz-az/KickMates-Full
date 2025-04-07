@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,13 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ProfileStackParamList } from '../navigation/AppNavigator';
 import { Ionicons } from '@expo/vector-icons';
-import { getUsers } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AuthContext } from '../context/AuthContext';
+import { getAllUsers, searchUsers } from '../services/api';
+import { navigateToUserProfile } from '../utils/navigation';
 
 interface User {
   id: number;
@@ -37,7 +41,8 @@ const MembersScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+  const { user: currentUser } = useContext(AuthContext);
   
   useEffect(() => {
     fetchMembers();
@@ -47,30 +52,44 @@ const MembersScreen = () => {
     if (searchQuery.trim() === '') {
       setFilteredMembers(members);
     } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = members.filter(
-        (member) =>
-          member.username.toLowerCase().includes(query) ||
-          member.full_name.toLowerCase().includes(query) ||
-          (member.location && member.location.toLowerCase().includes(query))
-      );
-      setFilteredMembers(filtered);
+      handleSearch();
     }
-  }, [searchQuery, members]);
+  }, [searchQuery]);
   
   const fetchMembers = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await getUsers();
+      const response = await getAllUsers();
       setMembers(response.data.users);
       setFilteredMembers(response.data.users);
-    } catch (err) {
-      console.error('Error fetching members:', err);
-      setError('Failed to load members. Please try again later.');
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      setError('Failed to load members. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  };
+  
+  const handleSearch = async () => {
+    if (searchQuery.trim() === '') {
+      setFilteredMembers(members);
+      return;
+    }
+    
+    try {
+      const response = await searchUsers(searchQuery);
+      setFilteredMembers(response.data.users);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      // Fallback to local filtering if API search fails
+      const filtered = members.filter(member => 
+        member.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (member.full_name && member.full_name.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+      setFilteredMembers(filtered);
     }
   };
   
@@ -83,7 +102,7 @@ const MembersScreen = () => {
   const renderMemberItem = ({ item }: { item: User }) => (
     <TouchableOpacity 
       style={styles.memberCard}
-      onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+      onPress={() => navigateToUserProfile(navigation, item.id, currentUser?.id)}
     >
       <Image 
         source={item.profile_image ? { uri: item.profile_image } : require('../assets/images/default-avatar.png')} 

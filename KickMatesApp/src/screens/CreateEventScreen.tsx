@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { createEvent } from '../services/api';
@@ -56,7 +56,7 @@ const sports: Sport[] = [
 ];
 
 const CreateEventScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [isLoading, setIsLoading] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   
@@ -190,7 +190,7 @@ const CreateEventScreen = () => {
           {
             text: 'OK',
             onPress: () => {
-              // @ts-ignore - Navigation typing issue
+              // Navigate directly to the EventDetail screen in the EventsTab
               navigation.navigate('EventsTab', {
                 screen: 'EventDetail',
                 params: { id: response.data.event.id.toString() }
@@ -231,7 +231,7 @@ const CreateEventScreen = () => {
           <View style={styles.headerContent}>
             <TouchableOpacity 
               style={styles.backButton} 
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate('HomeScreen')}
             >
               <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
             </TouchableOpacity>
@@ -259,7 +259,7 @@ const CreateEventScreen = () => {
         >
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate('HomeScreen')}
               style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={theme.colors.text} />

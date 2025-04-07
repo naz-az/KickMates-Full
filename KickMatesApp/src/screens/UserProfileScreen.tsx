@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   StatusBar,
   Animated,
   Platform,
+  Alert,
+  Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,16 +25,48 @@ import EventCard from '../components/EventCard';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
+import { AuthContext } from '../context/AuthContext';
+import { getUserById, getUserEventsById } from '../services/api';
+import { ProfileStackParamList } from '../navigation/AppNavigator';
 
-// Assuming these would exist in a real implementation
-type UserProfileScreenRouteProp = RouteProp<{
-  UserProfile: { userId: string };
-}, 'UserProfile'>;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+type UserProfileScreenRouteProp = RouteProp<ProfileStackParamList, 'UserProfile'>;
+type UserProfileNavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
+
+interface User {
+  id: number;
+  username: string;
+  full_name: string;
+  bio: string;
+  profile_image?: string;
+  created_at: string;
+}
+
+interface Event {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  start_date: string;
+  end_date: string;
+  sport_type: string;
+  image_url?: string;
+  max_players: number;
+  current_players: number;
+  creator_id: number;
+  creator?: {
+    id: number;
+    username: string;
+    profile_image?: string;
+  };
+}
 
 const UserProfileScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<UserProfileNavigationProp>();
   const route = useRoute<UserProfileScreenRouteProp>();
-  const userId = route.params?.userId;
+  const { user: currentUser } = useContext(AuthContext);
+  const userId = route.params?.id;
   
   // Animation values
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -40,10 +74,13 @@ const UserProfileScreen = () => {
   const slideAnim = useRef(new Animated.Value(30)).current;
   
   // State
-  const [userData, setUserData] = useState<any>(null);
-  const [userEvents, setUserEvents] = useState<any[]>([]);
+  const [userData, setUserData] = useState<User | null>(null);
+  const [userEvents, setUserEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('events');
+  const [showAllEvents, setShowAllEvents] = useState(false);
   
   // Transform for header opacity based on scroll position
   const headerOpacity = scrollY.interpolate({
@@ -67,56 +104,36 @@ const UserProfileScreen = () => {
       }),
     ]).start();
     
+    // If the user is trying to see their own profile, redirect to ProfileScreen
+    if (currentUser?.id.toString() === userId) {
+      navigation.replace('Profile');
+      return;
+    }
+    
     // Load user data
     loadUserData();
-  }, [userId]);
+  }, [userId, currentUser, navigation]);
   
   const loadUserData = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      // In a real implementation, we would fetch user data from API
-      // For demonstration purposes, we're setting mock data after a delay
-      setTimeout(() => {
-        setUserData({
-          id: userId || '123',
-          username: 'sportsEnthusiast',
-          full_name: 'Alex Johnson',
-          profile_image: 'https://randomuser.me/api/portraits/men/32.jpg',
-          bio: 'Sports enthusiast and community organizer. Love playing basketball and soccer on weekends.',
-          followers_count: 243,
-          events_count: 15,
-          created_at: '2022-06-15T00:00:00Z',
-        });
-        
-        setUserEvents([
-          {
-            id: 1,
-            title: 'Weekend Basketball',
-            description: 'Casual basketball game at Central Park courts',
-            location: 'Central Park, NY',
-            date: new Date(Date.now() + 86400000 * 3).toISOString(),
-            sport_type: 'basketball',
-            image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc',
-            participants_count: 8,
-            max_players: 10,
-          },
-          {
-            id: 2,
-            title: 'Soccer Tournament',
-            description: 'Neighborhood soccer tournament - 5v5 teams',
-            location: 'Riverside Fields',
-            date: new Date(Date.now() + 86400000 * 5).toISOString(),
-            sport_type: 'soccer',
-            image_url: 'https://images.unsplash.com/photo-1517927033932-35078d4c4fe5',
-            participants_count: 18,
-            max_players: 30,
-          },
-        ]);
-        
-        setIsLoading(false);
-      }, 1000);
+      // Fetch user profile data
+      const userResponse = await getUserById(userId);
+      setUserData(userResponse.data.user);
+      
+      // Fetch user events
+      const eventsResponse = await getUserEventsById(userId);
+      setUserEvents([
+        ...eventsResponse.data.created,
+        ...eventsResponse.data.participating
+      ]);
+      
+      setIsLoading(false);
     } catch (error) {
       console.error('Error loading user data:', error);
+      setError('Failed to load user profile. Please try again.');
       setIsLoading(false);
     }
   };
@@ -124,6 +141,14 @@ const UserProfileScreen = () => {
   const toggleFollow = () => {
     // In a real implementation, we would call an API to follow/unfollow
     setIsFollowing(prev => !prev);
+    
+    // Show a temporary message until the follow API is implemented
+    Alert.alert(
+      isFollowing ? "Unfollowed" : "Following",
+      isFollowing 
+        ? `You are no longer following ${userData?.username}.` 
+        : `You are now following ${userData?.username}.`
+    );
   };
   
   const getMemberSince = () => {
@@ -131,11 +156,61 @@ const UserProfileScreen = () => {
     const date = new Date(userData.created_at);
     return `Member since ${date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
   };
+
+  const handleViewAllEvents = () => {
+    setShowAllEvents(true);
+  };
   
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
+      </SafeAreaView>
+    );
+  }
+  
+  if (error) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadUserData}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // All events view
+  if (showAllEvents) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setShowAllEvents(false)}
+          >
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>All Events</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {userEvents.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+          
+          {userEvents.length === 0 && (
+            <Card style={styles.emptyStateContainer} variant="outlined">
+              <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
+              <Text style={styles.emptyStateTitle}>No Events</Text>
+              <Text style={styles.emptyStateDescription}>
+                This user hasn't created any events yet
+              </Text>
+            </Card>
+          )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -197,8 +272,9 @@ const UserProfileScreen = () => {
             <View style={styles.avatarContainer}>
               <Avatar 
                 size={110}
-                image={userData?.profile_image}
+                source={userData?.profile_image ? { uri: userData.profile_image } : null}
                 name={userData?.full_name || userData?.username}
+                gradient={!userData?.profile_image}
               />
             </View>
             
@@ -210,7 +286,7 @@ const UserProfileScreen = () => {
               <Text style={styles.userUsername}>@{userData?.username}</Text>
               
               <Badge 
-                text={getMemberSince()} 
+                label={getMemberSince()} 
                 variant="outline"
                 icon="calendar-outline"
                 style={styles.memberBadge}
@@ -223,14 +299,14 @@ const UserProfileScreen = () => {
             
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{userData?.events_count || 0}</Text>
+                <Text style={styles.statValue}>{userEvents.length || 0}</Text>
                 <Text style={styles.statLabel}>Events</Text>
               </View>
               
               <View style={styles.statDivider} />
               
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{userData?.followers_count || 0}</Text>
+                <Text style={styles.statValue}>0</Text> {/* This would come from the API in a real implementation */}
                 <Text style={styles.statLabel}>Followers</Text>
               </View>
             </View>
@@ -238,7 +314,9 @@ const UserProfileScreen = () => {
             <Button
               title={isFollowing ? "Following" : "Follow"}
               onPress={toggleFollow}
-              icon={<Ionicons name={isFollowing ? "checkmark-circle" : "person-add"} size={18} color="#FFFFFF" />}
+              icon={isFollowing ? 
+                <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : 
+                <Ionicons name="person-add" size={18} color="#FFFFFF" />}
               style={styles.followButton}
               gradient={true}
               gradientColors={isFollowing ? theme.gradients.success : theme.gradients.primary}
@@ -250,28 +328,65 @@ const UserProfileScreen = () => {
           <Text style={styles.sectionTitle}>Events by {userData?.full_name?.split(' ')[0] || userData?.username}</Text>
         </View>
         
-        {userEvents.length > 0 ? (
-          <View style={styles.eventsContainer}>
-            {userEvents.map(event => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </View>
-        ) : (
-          <Card style={styles.emptyStateContainer} variant="outlined">
-            <Ionicons 
-              name="calendar-outline" 
-              size={64} 
-              color={theme.colors.textTertiary} 
-            />
-            <Text style={styles.emptyStateTitle}>No Events</Text>
-            <Text style={styles.emptyStateDescription}>
-              This user hasn't created any events yet
-            </Text>
-          </Card>
-        )}
-        
-        <View style={styles.spacer} />
+        <View style={styles.eventsContainer}>
+          {userEvents.length > 0 ? (
+            <>
+              {userEvents.slice(0, 3).map(event => (
+                <EventCard key={event.id} event={event} />
+              ))}
+              
+              {userEvents.length > 3 && (
+                <Button
+                  title="View All Events"
+                  onPress={handleViewAllEvents}
+                  icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+                  iconPosition="right"
+                  style={styles.viewAllButton}
+                  gradient={true}
+                  gradientColors={theme.gradients.cool}
+                />
+              )}
+            </>
+          ) : (
+            <Card style={styles.emptyStateContainer} variant="outlined">
+              <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
+              <Text style={styles.emptyStateTitle}>No Events</Text>
+              <Text style={styles.emptyStateDescription}>
+                This user hasn't created any events yet
+              </Text>
+            </Card>
+          )}
+        </View>
       </Animated.ScrollView>
+      
+      {/* Bottom Tab Bar */}
+      <View style={styles.bottomTabBar}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.goBack()}>
+          <Ionicons name="home-outline" size={24} color="#6B7280" />
+          <Text style={styles.tabLabel}>Home</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.goBack()}>
+          <Ionicons name="calendar-outline" size={24} color="#6B7280" />
+          <Text style={styles.tabLabel}>Events</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.goBack()}>
+          <View style={styles.createTabButton}>
+            <Ionicons name="add" size={28} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.goBack()}>
+          <Ionicons name="notifications-outline" size={24} color="#6B7280" />
+          <Text style={styles.tabLabel}>Alerts</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.goBack()}>
+          <Ionicons name="person-outline" size={24} color="#6B7280" />
+          <Text style={styles.tabLabel}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -279,149 +394,181 @@ const UserProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F9FAFB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F9FAFB',
   },
-  scrollContent: {
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  retryButton: {
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 16,
-    paddingBottom: 40,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: '#4F46E5',
+    fontWeight: 'bold',
   },
   animatedHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 100,
+    zIndex: 10,
   },
   blurView: {
-    width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+    paddingTop: Platform.OS === 'ios' ? 50 : 0,
+    paddingBottom: 10,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
   },
   headerTitleSmall: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
     color: theme.colors.text,
+  },
+  scrollContent: {
+    paddingBottom: 80, // Add padding to account for bottom tab bar
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: Platform.OS === 'ios' ? 45 : 16,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: theme.colors.text,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    padding: 8,
   },
   profileCard: {
-    marginBottom: 24,
-    padding: 0,
+    marginHorizontal: 16,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   profileCardHeader: {
     height: 80,
-    width: '100%',
   },
   profileContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    padding: 16,
     alignItems: 'center',
+    marginTop: -55,
   },
   avatarContainer: {
-    marginTop: -55,
-    marginBottom: 16,
-    alignItems: 'center',
+    marginBottom: 12,
   },
   nameContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   userName: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: theme.colors.text,
     marginBottom: 4,
   },
   userUsername: {
-    fontSize: 16,
+    fontSize: 14,
     color: theme.colors.textSecondary,
     marginBottom: 8,
   },
   memberBadge: {
-    marginTop: 4,
+    marginBottom: 8,
   },
   userBio: {
-    fontSize: 15,
+    fontSize: 14,
     color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 16,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   statsContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
     width: '100%',
-    justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statItem: {
     alignItems: 'center',
     paddingHorizontal: 30,
   },
   statValue: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: 'bold',
     color: theme.colors.text,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: theme.colors.textSecondary,
-    marginTop: 4,
   },
   statDivider: {
     width: 1,
-    height: '100%',
+    height: '70%',
     backgroundColor: theme.colors.border,
+    marginHorizontal: 16,
+    alignSelf: 'center',
   },
   followButton: {
-    minWidth: 160,
+    width: '100%',
+    marginTop: 8,
   },
   sectionHeader: {
-    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: 'bold',
     color: theme.colors.text,
   },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.primary,
+  },
   eventsContainer: {
+    paddingHorizontal: 16,
     marginBottom: 24,
+  },
+  viewAllButton: {
+    marginTop: 12,
   },
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    marginBottom: 24,
+    marginBottom: 8,
   },
   emptyStateTitle: {
     fontSize: 20,
@@ -434,9 +581,50 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+    marginBottom: 20,
   },
-  spacer: {
-    height: 30,
+  // Bottom Tab Bar styles
+  bottomTabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  tabLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  createTabButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -10,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
 

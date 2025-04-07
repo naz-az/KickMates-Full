@@ -48,9 +48,12 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       console.log('Authentication error:', error.response.data.message);
       
+      // Skip login redirect for notification-related endpoints
+      const isNotificationRequest = error.config.url.includes('/notifications');
+      
       // If there's a token but we got 401, the token might be invalid or expired
       const token = localStorage.getItem('token');
-      if (token) {
+      if (token && !isNotificationRequest) {
         // Clear the invalid token
         localStorage.removeItem('token');
         
@@ -135,9 +138,9 @@ export const getEvents = (params?: Record<string, string | number | boolean>): P
 };
 
 export const getEventById = (id: string) => {
-  console.log("API call: getEventById for ID:", id);
+  // console.log("API call: getEventById for ID:", id);
   const token = localStorage.getItem('token');
-  console.log(`API call: Using token: ${token ? 'Present' : 'Missing'}`);
+  // console.log(`API call: Using token: ${token ? 'Present' : 'Missing'}`);
   return api.get(`/events/${id}`);
 };
 
@@ -175,7 +178,7 @@ export const bookmarkEvent = (id: string) => {
 };
 
 export const addComment = (id: string, content: string, parentCommentId?: number) => {
-  return api.post(`/events/${id}/comments`, { content, parentCommentId });
+  return api.post(`/events/${id}/comments`, { content, parent_comment_id: parentCommentId });
 };
 
 export const deleteComment = (id: string, commentId: string) => {
@@ -297,7 +300,7 @@ export const voteDiscussion = (id: string, voteType: 'up' | 'down'): Promise<Axi
 };
 
 export const addDiscussionComment = (id: string, content: string, parentCommentId?: number): Promise<AxiosResponse<any>> => {
-  return api.post(`/discussions/${id}/comments`, { content, parentCommentId });
+  return api.post(`/discussions/${id}/comments`, { content, parent_comment_id: parentCommentId });
 };
 
 export const deleteDiscussionComment = (discussionId: string, commentId: string): Promise<AxiosResponse<any>> => {

@@ -309,7 +309,7 @@ export const deleteDiscussion = async (req: Request, res: Response): Promise<voi
 export const addComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { content, parentCommentId } = req.body;
+    const { content, parent_comment_id } = req.body;
     const userId = req.user.id;
     
     // Validate content
@@ -327,10 +327,10 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
     }
     
     // If parentCommentId is provided, check if it exists and belongs to this discussion
-    if (parentCommentId) {
+    if (parent_comment_id) {
       const parentComment = await getAsync(
         'SELECT id FROM comments WHERE id = ? AND discussion_id = ?',
-        [parentCommentId, id]
+        [parent_comment_id, id]
       );
       
       if (!parentComment) {
@@ -342,7 +342,7 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
     // Add comment
     const result = await runAsync(
       'INSERT INTO comments (discussion_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)',
-      [id, userId, content, parentCommentId || null]
+      [id, userId, content, parent_comment_id || null]
     );
     
     // Get comment with user details

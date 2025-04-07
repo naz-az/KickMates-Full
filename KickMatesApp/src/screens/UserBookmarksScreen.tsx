@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,27 +13,28 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
-import { getUserBookmarks } from '../services/api';
+import { getUserBookmarks, bookmarkEvent } from '../services/api';
 import EventCard from '../components/EventCard';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useToast } from '../context/ToastContext';
 
 interface BookmarkedEvent {
   id: number;
   title: string;
   description: string;
   location: string;
-  event_date: string;
+  sport_type: string;
+  start_date: string;
+  end_date: string;
   created_at: string;
   updated_at: string;
   image_url?: string;
   creator_id: number;
-  category: string;
-  capacity: number;
-  current_participants: number;
-  status: string;
+  max_players: number;
+  current_players: number;
   creator_name: string;
   creator_profile_image?: string;
-  is_bookmarked: boolean;
+  bookmarked_by_user?: boolean;
 }
 
 const UserBookmarksScreen = () => {
@@ -44,6 +45,8 @@ const UserBookmarksScreen = () => {
   
   const navigation = useNavigation<any>();
   const { user } = useContext(AuthContext);
+  const { showToast } = useToast();
+  const isRemovingBookmarkRef = useRef<Record<number, boolean>>({});
   
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -60,7 +63,15 @@ const UserBookmarksScreen = () => {
       setError(null);
       
       const response = await getUserBookmarks();
-      setBookmarks(response.data.bookmarks);
+      console.log('[DEBUG] Bookmarks response:', response.data);
+      
+      // The server returns data as { bookmarkedEvents } but we were accessing it as .bookmarks
+      if (response.data.bookmarkedEvents) {
+        setBookmarks(response.data.bookmarkedEvents);
+      } else {
+        console.error('[DEBUG] Unexpected bookmarks response format:', response.data);
+        setBookmarks([]);
+      }
     } catch (err) {
       console.error('Error fetching bookmarks:', err);
       setError('Failed to load bookmarks. Please try again later.');
@@ -75,8 +86,49 @@ const UserBookmarksScreen = () => {
     setRefreshing(false);
   };
   
-  const navigateToEventDetail = (eventId) => {
-    navigation.navigate('EventDetail', { id: eventId });
+  const navigateToEventDetail = (eventId: number | string) => {
+    navigation.navigate('EventDetail', { id: eventId.toString() });
+  };
+  
+  const handleRemoveBookmark = async (eventId: number) => {
+    // Prevent multiple rapid clicks on the same bookmark
+    if (isRemovingBookmarkRef.current[eventId]) {
+      console.log(`[UserBookmarks] Already removing bookmark ${eventId}, ignoring click`);
+      return;
+    }
+    
+    try {
+      // Mark this bookmark as being removed
+      isRemovingBookmarkRef.current[eventId] = true;
+      
+      // Optimistically update UI
+      const updatedEvents = bookmarks.filter(event => event.id !== eventId);
+      setBookmarks(updatedEvents);
+      
+      // Add a small delay to debounce multiple clicks
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Call API with string parameter as required
+      await bookmarkEvent(eventId.toString());
+      
+      // Show toast
+      showToast('Event removed from bookmarks', 'success');
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      
+      // Revert on error
+      fetchBookmarks();
+      
+      // Show error toast
+      showToast('Failed to remove bookmark. Please try again.', 'error');
+    } finally {
+      // Reset after a delay to prevent immediate re-clicks
+      setTimeout(() => {
+        const updatedRef = { ...isRemovingBookmarkRef.current };
+        delete updatedRef[eventId];
+        isRemovingBookmarkRef.current = updatedRef;
+      }, 500);
+    }
   };
   
   return (
@@ -119,28 +171,29 @@ const UserBookmarksScreen = () => {
           data={bookmarks}
           renderItem={({ item }) => (
             <EventCard 
-              event={item} 
+              event={{ 
+                ...item,
+                bookmarked_by_user: true // All events here are bookmarked
+              }} 
+              index={bookmarks.indexOf(item)}
               onPress={() => navigateToEventDetail(item.id)}
+              onBookmarkPress={() => handleRemoveBookmark(item.id)}
+              showBookmarkButton
             />
           )}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.bookmarksList}
-          showsVerticalScrollIndicator={false}
+          keyExtractor={(item) => `bookmark-${item.id}`}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="bookmark-outline" size={60} color="#D1D5DB" />
+              <Text style={styles.emptyStateTitle}>No bookmarks yet</Text>
+              <Text style={styles.emptyStateText}>
+                Events you bookmark will appear here
+              </Text>
+            </View>
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="bookmark-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyText}>No bookmarked events</Text>
-              <Text style={styles.emptySubtext}>Events you bookmark will appear here</Text>
-              <TouchableOpacity 
-                style={styles.browseButton}
-                onPress={() => navigation.navigate('Events')}
-              >
-                <Text style={styles.browseButtonText}>Browse Events</Text>
-              </TouchableOpacity>
-            </View>
           }
         />
       )}
@@ -211,39 +264,28 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     fontWeight: 'bold',
   },
-  bookmarksList: {
+  listContent: {
     padding: 16,
   },
-  emptyContainer: {
+  emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
     marginTop: 32,
   },
-  emptyText: {
+  emptyStateTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
     marginTop: 16,
   },
-  emptySubtext: {
+  emptyStateText: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 16,
-  },
-  browseButton: {
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  browseButtonText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
   },
 });
 

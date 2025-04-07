@@ -68,12 +68,12 @@ export type HomeTabParamList = {
   DiscussionsTab: undefined;
   MessagesTab: undefined;
   ProfileTab: undefined;
+  CreateEvent: undefined;
 };
 
 export type EventsStackParamList = {
   EventsList: undefined;
   EventDetail: { id: string };
-  CreateEvent: undefined;
   EditEvent: { id: string };
 };
 
@@ -131,7 +131,6 @@ const EventsNavigator = () => {
     <EventsStack.Navigator>
       <EventsStack.Screen name="EventsList" component={EventsScreen} options={{ title: 'Events' }} />
       <EventsStack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Event Details' }} />
-      <EventsStack.Screen name="CreateEvent" component={CreateEventScreen} options={{ title: 'Create Event' }} />
       <EventsStack.Screen name="EditEvent" component={EditEventScreen} options={{ title: 'Edit Event' }} />
     </EventsStack.Navigator>
   );
@@ -199,6 +198,8 @@ const TabNavigator = () => {
             iconName = focused ? 'mail' : 'mail-outline';
           } else if (route.name === 'ProfileTab') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'CreateEvent') {
+            iconName = focused ? 'add-circle' : 'add-circle-outline';
           }
           
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -209,6 +210,14 @@ const TabNavigator = () => {
     >
       <Tab.Screen name="HomeScreen" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="EventsTab" component={EventsNavigator} options={{ title: 'Events' }} />
+      <Tab.Screen 
+        name="CreateEvent" 
+        component={CreateEventScreen} 
+        options={{ 
+          title: 'Create Event',
+          tabBarButton: () => null, // Hide tab button but keep in navigator
+        }} 
+      />
       <Tab.Screen name="DiscussionsTab" component={DiscussionsNavigator} options={{ title: 'Discussions' }} />
       <Tab.Screen name="MessagesTab" component={MessagesNavigator} options={{ title: 'Messages' }} />
       <Tab.Screen name="ProfileTab" component={ProfileNavigator} options={{ title: 'Profile' }} />

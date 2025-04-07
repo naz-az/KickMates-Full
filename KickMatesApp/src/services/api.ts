@@ -264,13 +264,13 @@ export const getUserBookmarks = () => {
 };
 
 // Get a specific user's profile
-export const getUserById = (id: string | number) => {
-  return api.get(`/users/${id}`);
+export const getUserById = (userId: string) => {
+  return api.get(`/users/${userId}`);
 };
 
 // Get a specific user's events
-export const getUserEventsById = (id: string | number) => {
-  return api.get(`/users/${id}/events`);
+export const getUserEventsById = (userId: string) => {
+  return api.get(`/users/${userId}/events`);
 };
 
 // Discussions API
