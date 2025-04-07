@@ -23,4 +23,8 @@ router.get('/conversations/:conversationId/messages', validator_1.validatePagina
 router.post('/conversations/:conversationId/messages', (0, authUtils_1.checkConversationParticipation)('conversationId'), validator_1.validateSendMessage, messageController_1.sendMessage);
 // Delete a message from a conversation (only owner can delete)
 router.delete('/conversations/:conversationId/messages/:messageId', (0, authUtils_1.checkConversationParticipation)('conversationId'), (0, authUtils_1.authorizeAction)('delete', 'message', 'messageId'), messageController_1.deleteMessage);
+// Like a message
+router.post('/conversations/:conversationId/messages/:messageId/like', (0, authUtils_1.checkConversationParticipation)('conversationId'), messageController_1.likeMessage);
+// Unlike a message
+router.delete('/conversations/:conversationId/messages/:messageId/like', (0, authUtils_1.checkConversationParticipation)('conversationId'), messageController_1.unlikeMessage);
 exports.default = router;

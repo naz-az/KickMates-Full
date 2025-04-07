@@ -27,7 +27,7 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
   const [commentsSort, setCommentsSort] = useState<'newest' | 'oldest'>('newest');
   const [commentPage, setCommentPage] = useState(1);
   const commentsPerPage = 5;
-  const [replyToComment, setReplyToComment] = useState<{id: number, username: string} | null>(null);
+  const [_replyToComment, setReplyToComment] = useState<{id: number, username: string} | null>(null);
   const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -73,7 +73,6 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
     
     try {
       //console.log("Fetching event details for ID:", id);
-      const token = localStorage.getItem('token');
       // console.log("Using auth token:", token ? "Present" : "Missing");
       
       const response = await getEventById(id!);
@@ -85,12 +84,7 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
       
       // Check if the user is in the participants array for debugging
       if (user) {
-        const userInParticipants = participants.some((p: any) => p.user_id === user.id);
-        // console.log("User found in participants array:", userInParticipants);
-        if (userInParticipants) {
-          const userParticipation = participants.find((p: any) => p.user_id === user.id);
-          // console.log("User participation details from array:", userParticipation);
-        }
+        // Removed unused userInParticipants variable
         
         // Check localStorage for bookmark state
         const bookmarkKey = getBookmarkKey(id!, user.id);
@@ -245,32 +239,28 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
   };
 
   const handleLeaveEvent = async () => {
-    // Remove confirmation dialog since it's now handled by the LeaveButton component
-    //console.log("Attempting to leave event with ID:", id);
-    
     try {
-      // Optimistic UI update - remove user from participants before API response
+      // Update the UI first for better user experience
+      setParticipationStatus(null);
+      
+      // Optimistically remove user from participants array
       if (user) {
-        // Keep track of user's status for event count updating
-        const userStatus = participationStatus;
+        setParticipants(prevParticipants => {
+          return prevParticipants.filter(p => p.user_id !== user.id);
+        });
         
-        // Remove user from participants array for immediate UI feedback
-        const updatedParticipants = participants.filter(p => p.user_id !== user.id);
-        setParticipants(updatedParticipants);
-        setParticipationStatus(null);
-        
-        // Update current_players count if user was confirmed
-        if (userStatus === 'confirmed') {
+        // If user was a confirmed participant, decrement the count
+        if (participationStatus === 'confirmed') {
           setEvent((prevEvent: any) => ({
             ...prevEvent,
-            current_players: Math.max(0, prevEvent.current_players - 1)
+            current_players: prevEvent.current_players > 0 ? prevEvent.current_players - 1 : 0
           }));
         }
         
         //console.log("Optimistically removed user from participants");
       }
       
-      const response = await leaveEvent(id!);
+      await leaveEvent(id!);
       //console.log("Leave event API response:", response.data);
       
       // Refresh event details to update waiting list promotions, etc.
@@ -437,7 +427,7 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
     }
   };
 
-  const handleVoteOnComment = (commentId: number, voteType: 'up' | 'down', newVotes: any) => {
+  const handleVoteOnComment = (commentId: number, _voteType: 'up' | 'down', newVotes: any) => {
     // Update the comments state with the new vote count
     setComments(comments.map(comment => {
       if (comment.id === commentId) {
@@ -617,19 +607,6 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
   const confirmedParticipants = participants.filter(p => p.status === 'confirmed');
   const waitingParticipants = participants.filter(p => p.status === 'waiting');
 
-  // Add an effect to log participants changes for debugging
-  // useEffect(() => {
-    // console.log("Participants updated:", participants);
-    // console.log("Confirmed participants:", confirmedParticipants);
-    // console.log("Waiting participants:", waitingParticipants);
-  // }, [participants]);
-
-  // Helper function to determine if the user is a participant based on participants array
-  const isParticipant = () => {
-    if (!user || !participants.length) return false;
-    return participants.some((p: any) => p.user_id === user.id);
-  };
-
   // Navigate to user profile
   const navigateToUserProfile = (userId: number) => {
     navigate(`/profile/${userId}`);
@@ -641,9 +618,6 @@ const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
   // Calculate if event is full - moved after event null check
   const isFull = event?.current_players >= event?.max_players;
   
-  // Check if user is creator
-  const isCreator = user && event && user.id === event.creator_id;
-
   const handleDeleteEvent = async () => {
     if (!user || !event || user.id !== event.creator_id) {
       setError('You do not have permission to delete this event');

@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile, updateProfile, uploadProfileImage } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface User {
   id: number;
@@ -14,7 +15,7 @@ interface User {
 }
 
 const ProfilePage = () => {
-  const { user: authUser } = useContext(AuthContext);
+  const { user: authUser, updateUserState } = useContext(AuthContext);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -114,6 +115,8 @@ const ProfilePage = () => {
       // First update profile data
       const response = await updateProfile(formData);
       setUser(response.data.user);
+      // Update the auth context to reflect changes immediately in navbar
+      updateUserState(response.data.user);
       
       // Then upload image if selected
       if (selectedImage) {
@@ -121,6 +124,8 @@ const ProfilePage = () => {
         try {
           const imageResponse = await uploadProfileImage(selectedImage);
           setUser(imageResponse.data.user);
+          // Update the auth context to reflect image change immediately in navbar
+          updateUserState(imageResponse.data.user);
         } catch (imgErr) {
           console.error('Error uploading image:', imgErr);
           setError('Profile was updated but image upload failed. Please try uploading the image again.');
@@ -133,7 +138,9 @@ const ProfilePage = () => {
         // If the user had a profile image but now it's removed, update the profile
         // with empty profile_image value
         try {
-          await updateProfile({ profile_image: '' });
+          const emptyImageResponse = await updateProfile({ profile_image: '' });
+          // Update the auth context to reflect image removal immediately in navbar
+          updateUserState(emptyImageResponse.data.user);
         } catch (removeErr) {
           console.error('Error removing profile image:', removeErr);
         }
@@ -216,7 +223,7 @@ const ProfilePage = () => {
             <div className="profile-image-container">
               <div className="relative">
                 <img 
-                  src={imagePreview || user.profile_image || defaultImage} 
+                  src={imagePreview || (user.profile_image ? formatImageUrl(user.profile_image) : defaultImage)} 
                   alt={user.username} 
                   className="profile-image"
                 />
@@ -337,6 +344,11 @@ const ProfilePage = () => {
                       placeholder="https://example.com/image.jpg"
                       disabled={!!selectedImage}
                     />
+                    {formData.profile_image && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Displays as: {formatImageUrl(formData.profile_image)}
+                      </p>
+                    )}
                   </div>
                   
                   <div className="form-group">

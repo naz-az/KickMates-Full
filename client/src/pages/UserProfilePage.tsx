@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import EventCard from '../components/EventCard';
 import { getUserById, getUserEventsById } from '../services/api';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface User {
   id: number;
@@ -114,7 +115,7 @@ const UserProfilePage = () => {
         <div className="bg-gradient-to-r from-blue-600 to-teal-500 h-48 rounded-lg relative mb-20">
           <div className="absolute -bottom-16 left-8 sm:left-12">
             <img 
-              src={user.profile_image || defaultImage} 
+              src={user.profile_image ? formatImageUrl(user.profile_image) : defaultImage} 
               alt={user.username} 
               className="h-32 w-32 rounded-full border-4 border-white object-cover shadow-lg"
             />

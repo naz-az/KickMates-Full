@@ -1,7 +1,8 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { NotificationContext } from '../context/NotificationContext';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface TopNavbarProps {
   sidebarCollapsed: boolean;
@@ -100,7 +101,7 @@ const TopNavbar = ({ sidebarCollapsed, toggleSidebar }: TopNavbarProps) => {
         <div className="relative">
           <button className="profile-button" onClick={toggleProfileMenu}>
             <img 
-              src={(user as User)?.avatar || (user as User)?.profile_image || defaultAvatar} 
+              src={(user as User)?.avatar || ((user as User)?.profile_image ? formatImageUrl((user as User)?.profile_image as string) : defaultAvatar)} 
               alt={(user as User)?.name || (user as User)?.username || 'User'} 
               className="profile-avatar"
             />

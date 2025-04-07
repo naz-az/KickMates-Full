@@ -4,8 +4,7 @@ import {
   getDiscussionById, 
   voteDiscussion, 
   addDiscussionComment, 
-  deleteDiscussionComment, 
-  voteDiscussionComment,
+  deleteDiscussionComment,
   deleteDiscussion 
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
@@ -206,7 +205,7 @@ const DiscussionDetailPage = () => {
   // Vote on a comment
   const handleVoteComment = async (
     commentId: number,
-    voteType: 'up' | 'down',
+    _voteType: 'up' | 'down',
     newVotes: { 
       thumbs_up: number, 
       thumbs_down: number, 

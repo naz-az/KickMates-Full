@@ -16,6 +16,7 @@ const discussionRoutes_1 = __importDefault(require("./routes/discussionRoutes"))
 const path_1 = __importDefault(require("path"));
 const http_1 = __importDefault(require("http"));
 const socketService_1 = require("./utils/socketService");
+const multer_1 = __importDefault(require("multer"));
 // Load environment variables
 dotenv_1.default.config();
 // Initialize express app
@@ -29,7 +30,7 @@ socketService_1.socketService.initialize(server);
 // Middleware
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
-app.use(express_1.default.static(path_1.default.join(__dirname, '../../uploads')));
+app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../../uploads')));
 app.use((0, morgan_1.default)('dev'));
 // API Routes
 app.use('/api/users', userRoutes_1.default);
@@ -45,7 +46,29 @@ if (process.env.NODE_ENV === 'production') {
         res.sendFile(path_1.default.join(__dirname, '../../client/dist/index.html'));
     });
 }
-// Error handling middleware
+// Multer error handling middleware
+app.use((err, req, res, next) => {
+    if (err instanceof multer_1.default.MulterError) {
+        // A Multer error occurred when uploading
+        console.error('Multer error:', err);
+        res.status(400).json({
+            message: `File upload error: ${err.message}`
+        });
+    }
+    else if (err && err.message && err.message.includes('Only image files are allowed')) {
+        // Our custom file filter error
+        console.error('File type error:', err);
+        res.status(400).json({
+            message: err.message,
+            type: 'invalid_file_type'
+        });
+    }
+    else {
+        // Forward to the general error handler
+        next(err);
+    }
+});
+// General error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ message: 'Something went wrong!' });

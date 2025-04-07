@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteMessage = exports.getConversation = exports.createConversation = exports.sendMessage = exports.getMessages = exports.getConversations = void 0;
+exports.unlikeMessage = exports.likeMessage = exports.deleteMessage = exports.getConversation = exports.createConversation = exports.sendMessage = exports.getMessages = exports.getConversations = void 0;
 const db_1 = require("../db");
 // Get conversations for the current user
 const getConversations = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -129,7 +129,7 @@ const getMessages = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         if (!participant) {
             return res.status(403).json({ message: 'You are not a participant in this conversation' });
         }
-        // Get messages
+        // Get messages with like information
         const messages = yield (0, db_1.allAsync)(`
       SELECT 
         m.id, 
@@ -142,32 +142,35 @@ const getMessages = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         m.reply_to_sender,
         u.username as sender_username,
         u.full_name as sender_name,
-        u.profile_image as sender_profile_image
+        u.profile_image as sender_profile_image,
+        (
+          SELECT COUNT(*)
+          FROM message_likes ml
+          WHERE ml.message_id = m.id
+        ) as likes,
+        (
+          SELECT COUNT(*)
+          FROM message_likes ml
+          WHERE ml.message_id = m.id AND ml.user_id = ?
+        ) as is_liked
       FROM messages m
       JOIN users u ON m.sender_id = u.id
       WHERE m.conversation_id = ?
       ORDER BY m.created_at ASC
-    `, [conversationId]);
-        // Log the raw messages retrieved from DB
-        // console.log('Raw messages fetched from DB:', messages);
+    `, [userId, conversationId]);
         // Mark messages as read
         yield (0, db_1.runAsync)(`
       UPDATE messages
       SET is_read = 1
       WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
     `, [conversationId, userId]);
-        // Format messages with date grouping
-        const formattedMessages = messages.map((message) => {
+        // Format messages before sending to client
+        const formattedMessages = messages.map(message => {
             const date = new Date(message.created_at);
             const today = new Date();
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
             let dateGroup;
             if (date.toDateString() === today.toDateString()) {
                 dateGroup = 'Today';
-            }
-            else if (date.toDateString() === yesterday.toDateString()) {
-                dateGroup = 'Yesterday';
             }
             else {
                 dateGroup = date.toLocaleDateString();
@@ -184,6 +187,7 @@ const getMessages = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 replyToId: message.reply_to_id,
                 replyToContent: message.reply_to_content,
                 replyToSender: message.reply_to_sender,
+                isLiked: Boolean(message.is_liked),
                 time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 date: dateGroup
             };
@@ -192,7 +196,7 @@ const getMessages = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
     catch (error) {
         console.error('Error getting messages:', error);
-        res.status(500).json({ message: 'Server error while fetching messages' });
+        res.status(500).json({ message: 'Server error while getting messages' });
     }
 });
 exports.getMessages = getMessages;
@@ -303,23 +307,26 @@ exports.sendMessage = sendMessage;
 const createConversation = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userId = req.user.id;
-        const { participantIds } = req.body;
-        if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+        // Accept both participants and participantIds for backwards compatibility
+        const { participants, participantIds } = req.body;
+        // Use whichever field is provided (participants takes precedence)
+        const userIds = participants || participantIds;
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
             return res.status(400).json({ message: 'At least one participant is required' });
         }
         // Add current user to participants if not already included
-        if (!participantIds.includes(userId)) {
-            participantIds.push(userId);
+        if (!userIds.includes(userId)) {
+            userIds.push(userId);
         }
         // Check if all participants exist
-        for (const participantId of participantIds) {
+        for (const participantId of userIds) {
             const user = yield (0, db_1.getAsync)(`SELECT id FROM users WHERE id = ?`, [participantId]);
             if (!user) {
                 return res.status(404).json({ message: `User with ID ${participantId} not found` });
             }
         }
         // Check if a conversation with exactly these participants already exists
-        if (participantIds.length === 2) {
+        if (userIds.length === 2) {
             const existingConversation = yield (0, db_1.getAsync)(`
         SELECT c.id
         FROM conversations c
@@ -335,7 +342,7 @@ const createConversation = (req, res) => __awaiter(void 0, void 0, void 0, funct
           SELECT 1 FROM conversation_participants
           WHERE conversation_id = c.id AND user_id = ?
         )
-      `, [participantIds[0], participantIds[1]]);
+      `, [userIds[0], userIds[1]]);
             if (existingConversation) {
                 // Return existing conversation
                 return res.json({ conversationId: existingConversation.id });
@@ -347,7 +354,7 @@ const createConversation = (req, res) => __awaiter(void 0, void 0, void 0, funct
     `);
         const conversationId = conversationResult.lastID;
         // Add participants
-        for (const participantId of participantIds) {
+        for (const participantId of userIds) {
             yield (0, db_1.runAsync)(`
         INSERT INTO conversation_participants (conversation_id, user_id)
         VALUES (?, ?)
@@ -448,3 +455,97 @@ const deleteMessage = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.deleteMessage = deleteMessage;
+// Like a message
+const likeMessage = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userId = req.user.id;
+        const { conversationId, messageId } = req.params;
+        // Check if user is a participant in this conversation
+        const participant = yield (0, db_1.getAsync)(`
+      SELECT * FROM conversation_participants
+      WHERE conversation_id = ? AND user_id = ?
+    `, [conversationId, userId]);
+        if (!participant) {
+            return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        }
+        // Check if the message exists
+        const message = yield (0, db_1.getAsync)(`
+      SELECT * FROM messages
+      WHERE id = ? AND conversation_id = ?
+    `, [messageId, conversationId]);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        // Check if user already liked the message
+        const existingLike = yield (0, db_1.getAsync)(`
+      SELECT * FROM message_likes
+      WHERE message_id = ? AND user_id = ?
+    `, [messageId, userId]);
+        if (existingLike) {
+            return res.status(400).json({ message: 'You have already liked this message' });
+        }
+        // Add like
+        yield (0, db_1.runAsync)(`
+      INSERT INTO message_likes (message_id, user_id)
+      VALUES (?, ?)
+    `, [messageId, userId]);
+        // Get updated like count
+        const likeCount = yield (0, db_1.getAsync)(`
+      SELECT COUNT(*) as count
+      FROM message_likes
+      WHERE message_id = ?
+    `, [messageId]);
+        res.json({
+            message: 'Message liked successfully',
+            likes: likeCount.count
+        });
+    }
+    catch (error) {
+        console.error('Error liking message:', error);
+        res.status(500).json({ message: 'Server error while liking message' });
+    }
+});
+exports.likeMessage = likeMessage;
+// Unlike a message
+const unlikeMessage = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userId = req.user.id;
+        const { conversationId, messageId } = req.params;
+        // Check if user is a participant in this conversation
+        const participant = yield (0, db_1.getAsync)(`
+      SELECT * FROM conversation_participants
+      WHERE conversation_id = ? AND user_id = ?
+    `, [conversationId, userId]);
+        if (!participant) {
+            return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        }
+        // Check if the message exists
+        const message = yield (0, db_1.getAsync)(`
+      SELECT * FROM messages
+      WHERE id = ? AND conversation_id = ?
+    `, [messageId, conversationId]);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        // Remove like
+        yield (0, db_1.runAsync)(`
+      DELETE FROM message_likes
+      WHERE message_id = ? AND user_id = ?
+    `, [messageId, userId]);
+        // Get updated like count
+        const likeCount = yield (0, db_1.getAsync)(`
+      SELECT COUNT(*) as count
+      FROM message_likes
+      WHERE message_id = ?
+    `, [messageId]);
+        res.json({
+            message: 'Message unliked successfully',
+            likes: likeCount.count
+        });
+    }
+    catch (error) {
+        console.error('Error unliking message:', error);
+        res.status(500).json({ message: 'Server error while unliking message' });
+    }
+});
+exports.unlikeMessage = unlikeMessage;

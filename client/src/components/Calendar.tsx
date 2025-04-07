@@ -178,7 +178,7 @@ const Calendar = () => {
                     
                     // Calculate duration
                     const endTime = new Date(event.end);
-                    const durationHours = (endTime - eventDate) / (1000 * 60 * 60);
+                    const durationHours = (endTime.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
                     const height = durationHours * 64;
                     
                     // Determine background color based on event type

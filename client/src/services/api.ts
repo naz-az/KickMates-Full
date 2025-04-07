@@ -139,8 +139,6 @@ export const getEvents = (params?: Record<string, string | number | boolean>): P
 
 export const getEventById = (id: string) => {
   // console.log("API call: getEventById for ID:", id);
-  const token = localStorage.getItem('token');
-  // console.log(`API call: Using token: ${token ? 'Present' : 'Missing'}`);
   return api.get(`/events/${id}`);
 };
 

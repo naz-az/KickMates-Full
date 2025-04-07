@@ -119,15 +119,6 @@ const EditDiscussionPage = () => {
     }
   };
   
-  // Keep current image
-  const handleKeepCurrentImage = () => {
-    setSelectedFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-  
   // Remove current image
   const handleRemoveCurrentImage = () => {
     setCurrentImage(null);

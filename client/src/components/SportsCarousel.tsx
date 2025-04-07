@@ -193,7 +193,7 @@ const SportsCarousel = () => {
     }
   };
   
-  const handleSlideChange = (current: number, next: number) => {
+  const handleSlideChange = (_current: number, next: number) => {
     setActiveSlide(next);
     startProgressAnimation();
   };

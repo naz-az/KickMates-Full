@@ -20,7 +20,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadProfileImage = exports.deleteAccount = exports.changePassword = exports.getUserEventsById = exports.getUserById = exports.getAllUsers = exports.getUserBookmarks = exports.getUserEvents = exports.updateProfile = exports.getProfile = exports.login = exports.register = void 0;
+exports.searchUsers = exports.uploadProfileImage = exports.deleteAccount = exports.changePassword = exports.getUserEventsById = exports.getUserById = exports.getAllUsers = exports.getUserBookmarks = exports.getUserEvents = exports.updateProfile = exports.getProfile = exports.login = exports.register = void 0;
 const db_1 = require("../db");
 const auth_1 = require("../utils/auth");
 // Register new user
@@ -376,3 +376,23 @@ const uploadProfileImage = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.uploadProfileImage = uploadProfileImage;
+// Search users
+const searchUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { query } = req.query;
+        if (!query || typeof query !== 'string') {
+            res.status(400).json({ message: 'Search query is required' });
+            return;
+        }
+        const users = yield (0, db_1.allAsync)(`SELECT id, username, full_name, bio, profile_image, created_at 
+       FROM users 
+       WHERE username LIKE ? OR full_name LIKE ?
+       ORDER BY created_at DESC`, [`%${query}%`, `%${query}%`]);
+        res.status(200).json({ users });
+    }
+    catch (error) {
+        console.error('Search users error:', error);
+        res.status(500).json({ message: 'Server error searching users' });
+    }
+});
+exports.searchUsers = searchUsers;

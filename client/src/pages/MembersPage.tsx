@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsers } from '../services/api';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface User {
   id: number;
@@ -141,7 +142,7 @@ const MembersPage = () => {
                 <div className="px-4 pt-0 pb-5 -mt-12 relative">
                   <div className="absolute -top-14 left-1/2 transform -translate-x-1/2">
                     <img 
-                      src={user.profile_image || defaultImage} 
+                      src={user.profile_image ? formatImageUrl(user.profile_image) : defaultImage} 
                       alt={user.username} 
                       className="h-24 w-24 rounded-full border-4 border-white object-cover"
                     />

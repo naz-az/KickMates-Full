@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { voteComment, addComment } from '../services/api';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface CommentType {
   id: number;
@@ -136,7 +137,7 @@ const Comment = ({
       <div className="comment-main">
         <div className="comment-avatar">
           <img 
-            src={comment.profile_image || defaultImage} 
+            src={comment.profile_image ? formatImageUrl(comment.profile_image) : defaultImage} 
             alt={comment.username} 
             className="cursor-pointer"
             onClick={() => navigateToUserProfile(comment.user_id)}
@@ -213,7 +214,7 @@ const Comment = ({
       {showReplyForm && user && (
         <form className="inline-reply-form" onSubmit={handleSubmitReply}>
           <img 
-            src={user.profile_image || defaultImage} 
+            src={user.profile_image ? formatImageUrl(user.profile_image) : defaultImage} 
             alt={user.username}
             className="cursor-pointer"
             onClick={() => navigateToUserProfile(user.id)}

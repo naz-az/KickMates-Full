@@ -1,5 +1,84 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { getProfile, updateProfile, changePassword, deleteAccount, uploadProfileImage } from '../services/api';
+import { formatImageUrl } from '../utils/imageUtils';
+import { AuthContext } from '../context/AuthContext';
+
+// Toast notification component
+const Toast = ({ message, type = 'success', onClose }: { message: string; type?: 'success' | 'error' | 'info'; onClose: () => void }) => {
+  const [isClosing, setIsClosing] = useState(false);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleClose();
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 300); // Match animation duration
+  };
+  
+  const bgColor = 
+    type === 'success' ? 'bg-green-50 border-green-200' : 
+    type === 'error' ? 'bg-red-50 border-red-200' : 
+    'bg-blue-50 border-blue-200';
+    
+  const textColor = 
+    type === 'success' ? 'text-green-800' : 
+    type === 'error' ? 'text-red-800' : 
+    'text-blue-800';
+    
+  const iconColor = 
+    type === 'success' ? 'text-green-500' : 
+    type === 'error' ? 'text-red-500' : 
+    'text-blue-500';
+  
+  return (
+    <div 
+      className={`fixed top-4 right-4 z-50 flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow-lg border ${bgColor}`}
+      style={{
+        animation: isClosing 
+          ? "slideOutRight 0.3s ease-in-out forwards" 
+          : "fadeIn 0.3s ease-in-out forwards, slideInRight 0.3s ease-in-out forwards"
+      }}
+      role="alert"
+    >
+      <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconColor}`}>
+        {type === 'success' && (
+          <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.707 8.207-4 4a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L9 10.586l3.293-3.293a1 1 0 0 1 1.414 1.414Z"/>
+          </svg>
+        )}
+        {type === 'error' && (
+          <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.5 13.193-1.307 1.307L10 12.807 7.807 15l-1.307-1.307L8.693 10 6.5 7.807 7.807 6.5 10 8.693 12.193 6.5l1.307 1.307L11.307 10l2.193 2.193Z"/>
+          </svg>
+        )}
+        {type === 'info' && (
+          <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM10 15a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-4a1 1 0 0 1-2 0V6a1 1 0 0 1 2 0v5Z"/>
+          </svg>
+        )}
+      </div>
+      <div className={`ml-3 text-sm font-normal ${textColor}`}>{message}</div>
+      <button 
+        type="button" 
+        onClick={handleClose} 
+        className={`ml-auto -mx-1.5 -my-1.5 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 inline-flex h-8 w-8 ${textColor} hover:bg-gray-100`} 
+        aria-label="Close"
+      >
+        <span className="sr-only">Close</span>
+        <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+          <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+        </svg>
+      </button>
+    </div>
+  );
+};
 
 interface User {
   id: number;
@@ -17,6 +96,24 @@ const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const { updateUserState } = useContext(AuthContext);
+  
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; visible: boolean }>({
+    message: '',
+    type: 'success',
+    visible: false
+  });
+  
+  // Show toast notification
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type, visible: true });
+  };
+  
+  // Hide toast notification
+  const hideToast = () => {
+    setToast(prev => ({ ...prev, visible: false }));
+  };
   
   // Form states
   const [profileForm, setProfileForm] = useState({
@@ -191,8 +288,8 @@ const SettingsPage = () => {
       // Update local user state with response data
       if (response.data && response.data.user) {
         setUser(response.data.user);
-        // Show success message (without toast)
-        alert('Profile updated successfully');
+        // Show success message with toast
+        showToast('Profile updated successfully');
       }
       
       // Note: In a real app, we would also submit notification and privacy settings
@@ -201,8 +298,8 @@ const SettingsPage = () => {
       
     } catch (error) {
       console.error('Error updating profile:', error);
-      // Show error message (without toast)
-      alert('Failed to update profile. Please try again.');
+      // Show error message with toast
+      showToast('Failed to update profile. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -268,7 +365,8 @@ const SettingsPage = () => {
         confirmPassword: ''
       });
       
-      alert('Password changed successfully');
+      setShowPasswordModal(false);
+      showToast('Password changed successfully');
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { message?: string } } };
       if (axiosError.response?.data?.message) {
@@ -290,14 +388,7 @@ const SettingsPage = () => {
       return;
     }
     
-    // Confirm deletion
-    const confirmed = window.confirm(
-      'Are you sure you want to delete your account? This action cannot be undone and will remove all your data.'
-    );
-    
-    if (!confirmed) return;
-    
-    setDeleteError('');
+    // We'll use our modal instead of the basic confirm
     setIsDeletingAccount(true);
     
     try {
@@ -341,11 +432,13 @@ const SettingsPage = () => {
       
       if (response.data && response.data.user) {
         setUser(response.data.user);
-        alert('Profile picture updated successfully');
+        // Update the auth context to reflect changes immediately in navbar
+        updateUserState(response.data.user);
+        showToast('Profile picture updated successfully');
       }
     } catch (error) {
       console.error('Error uploading profile image:', error);
-      alert('Failed to upload profile image. Please try again.');
+      showToast('Failed to upload profile image. Please try again.', 'error');
     } finally {
       setUploadingImage(false);
     }
@@ -367,11 +460,13 @@ const SettingsPage = () => {
       
       if (response.data && response.data.user) {
         setUser(response.data.user);
-        alert('Profile picture removed successfully');
+        // Update the auth context to reflect changes immediately in navbar
+        updateUserState(response.data.user);
+        showToast('Profile picture removed successfully');
       }
     } catch (error) {
       console.error('Error removing profile image:', error);
-      alert('Failed to remove profile image. Please try again.');
+      showToast('Failed to remove profile image. Please try again.', 'error');
     }
   };
   
@@ -389,6 +484,15 @@ const SettingsPage = () => {
   
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={hideToast} 
+        />
+      )}
+      
       {/* Hidden file input for profile image upload */}
       <input
         type="file"
@@ -452,7 +556,7 @@ const SettingsPage = () => {
                         ) : (
                           <>
                             <img
-                              src={user?.profile_image || "https://i.pravatar.cc/150?u=alex"}
+                              src={user?.profile_image ? formatImageUrl(user.profile_image) : "https://i.pravatar.cc/150?u=alex"}
                               alt="Profile"
                               className="w-full h-full object-cover"
                             />
@@ -1084,13 +1188,16 @@ const SettingsPage = () => {
       
       {/* Password Change Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center backdrop-blur-sm transition-all duration-300">
+          <div 
+            className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"
+            style={{ animation: "fadeIn 0.3s ease-in-out forwards" }}
+          >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Change Password</h3>
               <button 
                 onClick={() => setShowPasswordModal(false)}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 transition-colors"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -1100,8 +1207,13 @@ const SettingsPage = () => {
             
             <form onSubmit={handlePasswordSubmit}>
               {passwordError && (
-                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
-                  {passwordError}
+                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md border border-red-200">
+                  <div className="flex">
+                    <svg className="w-5 h-5 mr-2 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.5 13.193-1.307 1.307L10 12.807 7.807 15l-1.307-1.307L8.693 10 6.5 7.807 7.807 6.5 10 8.693 12.193 6.5l1.307 1.307L11.307 10l2.193 2.193Z"/>
+                    </svg>
+                    {passwordError}
+                  </div>
                 </div>
               )}
               
@@ -1151,16 +1263,23 @@ const SettingsPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  disabled={isSubmittingPassword}
                 >
                   {isSubmittingPassword ? (
-                    <span className="hidden">Password being updated...</span>
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </div>
                   ) : (
                     'Change Password'
                   )}
@@ -1173,13 +1292,16 @@ const SettingsPage = () => {
       
       {/* Delete Account Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center backdrop-blur-sm transition-all duration-300">
+          <div 
+            className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"
+            style={{ animation: "fadeIn 0.3s ease-in-out forwards" }}
+          >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-red-700">Delete Account</h3>
               <button 
                 onClick={() => setShowDeleteModal(false)}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 transition-colors"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -1188,18 +1310,31 @@ const SettingsPage = () => {
             </div>
             
             <div className="mb-4">
-              <p className="text-gray-800 mb-4">
-                This action is permanent and will delete all your data, including events, comments, and personal information.
-              </p>
-              <p className="text-red-600 font-semibold mb-4">
+              <div className="flex items-center p-4 mb-4 border border-red-200 rounded-lg bg-red-50">
+                <svg className="w-6 h-6 mr-3 text-red-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM10 15a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-4a1 1 0 0 1-2 0V6a1 1 0 0 1 2 0v5Z"/>
+                </svg>
+                <div>
+                  <p className="text-sm text-red-700 font-medium">Warning</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    This action is permanent and will delete all your data, including events, comments, and personal information.
+                  </p>
+                </div>
+              </div>
+              <p className="text-red-600 font-semibold">
                 This action cannot be undone.
               </p>
             </div>
             
             <form onSubmit={handleDeleteAccount}>
               {deleteError && (
-                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
-                  {deleteError}
+                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md border border-red-200">
+                  <div className="flex">
+                    <svg className="w-5 h-5 mr-2 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.5 13.193-1.307 1.307L10 12.807 7.807 15l-1.307-1.307L8.693 10 6.5 7.807 7.807 6.5 10 8.693 12.193 6.5l1.307 1.307L11.307 10l2.193 2.193Z"/>
+                    </svg>
+                    {deleteError}
+                  </div>
                 </div>
               )}
               
@@ -1221,16 +1356,23 @@ const SettingsPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowDeleteModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                  disabled={isDeletingAccount}
                 >
                   {isDeletingAccount ? (
-                    <span className="hidden">Account being deleted...</span>
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </div>
                   ) : (
                     'Delete Account'
                   )}

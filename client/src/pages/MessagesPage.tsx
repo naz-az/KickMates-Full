@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getConversations, getMessages, sendMessage, deleteMessage, getAllUsers, createConversation } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { socketService, useSocket } from '../services/socketService';
+import { formatImageUrl } from '../utils/imageUtils';
 
 // Message types
 interface Contact {
@@ -730,7 +731,7 @@ const MessagesPage = () => {
       // Set the active conversation
       setActiveConversation(newConversationId);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating conversation:', error);
       
       // Add more detailed error info
@@ -1182,18 +1183,21 @@ const MessagesPage = () => {
                         {contact.participants.slice(0, 2).map((participant, index) => (
                           <img 
                             key={participant.id}
-                            src={participant.profile_image || `https://i.pravatar.cc/150?u=user${participant.id}`}
+                            src={participant.profile_image ? formatImageUrl(participant.profile_image) : `https://i.pravatar.cc/150?u=user${participant.id}`}
                             alt={participant.full_name || participant.username}
                             className={`chat-avatar border-2 border-white ${contact.online ? 'online' : ''} cursor-pointer`}
                             style={{ zIndex: 2 - index, width: '2rem', height: '2rem' }}
                             onClick={(e) => handleProfileClick(participant.id, e)}
                           />
                         ))}
-                        {contact.participants.length > 2 && (
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-700 font-medium border-2 border-white" style={{ zIndex: 0 }}>
-                            +{contact.participants.length - 2}
-                          </div>
-                        )}
+                        {(() => {
+                          const activeContact = contacts.find(c => c.id === activeConversation);
+                          return activeContact?.participants && activeContact.participants.length > 3 ? (
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-700 font-medium border-2 border-white" style={{ zIndex: 0 }}>
+                              +{activeContact.participants.length - 3}
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     ) : (
                       <img 
@@ -1236,18 +1240,21 @@ const MessagesPage = () => {
                     {contacts.find(c => c.id === activeConversation)?.participants.slice(0, 3).map((participant, index) => (
                       <img 
                         key={participant.id}
-                        src={participant.profile_image || `https://i.pravatar.cc/150?u=user${participant.id}`}
+                        src={participant.profile_image ? formatImageUrl(participant.profile_image) : `https://i.pravatar.cc/150?u=user${participant.id}`}
                         alt={participant.full_name || participant.username}
                         className="chat-avatar cursor-pointer border-2 border-white"
                         style={{ zIndex: 3 - index }}
                         onClick={(e) => handleProfileClick(participant.id, e)}
                       />
                     ))}
-                    {contacts.find(c => c.id === activeConversation)?.participants.length > 3 && (
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-700 font-medium border-2 border-white" style={{ zIndex: 0 }}>
-                        +{contacts.find(c => c.id === activeConversation)?.participants.length - 3}
-                      </div>
-                    )}
+                    {(() => {
+                      const activeContact = contacts.find(c => c.id === activeConversation);
+                      return activeContact?.participants && activeContact.participants.length > 3 ? (
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-700 font-medium border-2 border-white" style={{ zIndex: 0 }}>
+                          +{activeContact.participants.length - 3}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 ) : (
                   <img 
@@ -1265,17 +1272,20 @@ const MessagesPage = () => {
                     {contacts.find(c => c.id === activeConversation)?.name}
                   </div>
                   {/* Show participant count for group conversations */}
-                  {contacts.find(c => c.id === activeConversation)?.isGroup ? (
-                    <div className="text-sm text-gray-500">
-                      {contacts.find(c => c.id === activeConversation)?.participants.length} participants
-                    </div>
-                  ) : (
-                    contacts.find(c => c.id === activeConversation)?.online ? (
-                      <div className="chat-user-status">Online</div>
-                    ) : (
-                      <div className="text-sm text-gray-500">Offline</div>
-                    )
-                  )}
+                  {(() => {
+                    const activeContact = contacts.find(c => c.id === activeConversation);
+                    if (activeContact?.isGroup) {
+                      return (
+                        <div className="text-sm text-gray-500">
+                          {activeContact.participants?.length || 0} participants
+                        </div>
+                      );
+                    } else if (activeContact?.online) {
+                      return <div className="chat-user-status">Online</div>;
+                    } else {
+                      return <div className="text-sm text-gray-500">Offline</div>;
+                    }
+                  })()}
                 </div>
               </div>
               
@@ -1386,7 +1396,7 @@ const MessagesPage = () => {
                           </div>
                           
                           <img 
-                            src={user?.profile_image || userProfileImage || `https://i.pravatar.cc/150?u=me`} 
+                            src={user?.profile_image ? formatImageUrl(user.profile_image) : (userProfileImage ? formatImageUrl(userProfileImage) : `https://i.pravatar.cc/150?u=me`)} 
                             alt="Me"
                             className="w-8 h-8 rounded-full ml-2 self-end cursor-pointer"
                             onClick={(e) => {
@@ -1406,7 +1416,7 @@ const MessagesPage = () => {
                           onContextMenu={(e) => handleMessageContextMenu(e, message)}
                       >
                           <img 
-                            src={message.senderProfileImage || `https://i.pravatar.cc/150?u=user${message.senderId}`} 
+                            src={message.senderProfileImage ? formatImageUrl(message.senderProfileImage) : `https://i.pravatar.cc/150?u=user${message.senderId}`} 
                             alt={message.senderName}
                             className="w-8 h-8 rounded-full mr-2 self-end cursor-pointer"
                             onClick={(e) => handleProfileClick(message.senderId, e)}

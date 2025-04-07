@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -43,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadEventImage = exports.voteComment = exports.deleteComment = exports.addComment = exports.bookmarkEvent = exports.leaveEvent = exports.joinEvent = exports.deleteEvent = exports.updateEvent = exports.getEventById = exports.getEvents = exports.createEvent = void 0;
-const db_1 = __importStar(require("../db"));
+const db_1 = require("../db");
 const notificationController_1 = require("./notificationController");
 // Create a new event
 const createEvent = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -249,18 +216,33 @@ const deleteEvent = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(403).json({ message: 'Not authorized to delete this event' });
             return;
         }
-        db_1.default.run('BEGIN TRANSACTION');
-        // Delete related records
-        yield (0, db_1.runAsync)('DELETE FROM comments WHERE event_id = ?', [id]);
-        yield (0, db_1.runAsync)('DELETE FROM event_participants WHERE event_id = ?', [id]);
-        yield (0, db_1.runAsync)('DELETE FROM bookmarks WHERE event_id = ?', [id]);
-        // Delete event
-        yield (0, db_1.runAsync)('DELETE FROM events WHERE id = ?', [id]);
-        db_1.default.run('COMMIT');
-        res.status(200).json({ message: 'Event deleted successfully' });
+        // Start transaction properly using runAsync
+        yield (0, db_1.runAsync)('BEGIN TRANSACTION');
+        try {
+            // Delete notifications related to this event
+            yield (0, db_1.runAsync)('DELETE FROM notifications WHERE related_id = ?', [id]);
+            // Delete comment votes first
+            yield (0, db_1.runAsync)('DELETE FROM comment_votes WHERE comment_id IN (SELECT id FROM comments WHERE event_id = ?)', [id]);
+            // Then delete comments
+            yield (0, db_1.runAsync)('DELETE FROM comments WHERE event_id = ?', [id]);
+            // Delete participants
+            yield (0, db_1.runAsync)('DELETE FROM event_participants WHERE event_id = ?', [id]);
+            // Delete bookmarks
+            yield (0, db_1.runAsync)('DELETE FROM bookmarks WHERE event_id = ?', [id]);
+            // Finally delete the event
+            yield (0, db_1.runAsync)('DELETE FROM events WHERE id = ?', [id]);
+            // Commit transaction
+            yield (0, db_1.runAsync)('COMMIT');
+            res.status(200).json({ message: 'Event deleted successfully' });
+        }
+        catch (error) {
+            // Rollback transaction on error
+            yield (0, db_1.runAsync)('ROLLBACK');
+            console.error('Transaction error:', error);
+            throw error;
+        }
     }
     catch (error) {
-        db_1.default.run('ROLLBACK');
         console.error('Delete event error:', error);
         res.status(500).json({ message: 'Server error deleting event' });
     }
@@ -378,7 +360,8 @@ const bookmarkEvent = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             yield (0, db_1.runAsync)('DELETE FROM bookmarks WHERE event_id = ? AND user_id = ?', [id, userId]);
             res.status(200).json({
                 message: 'Event removed from bookmarks',
-                bookmarked: false
+                bookmarked: false,
+                is_bookmarked: false
             });
             return;
         }
@@ -386,7 +369,8 @@ const bookmarkEvent = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         yield (0, db_1.runAsync)('INSERT INTO bookmarks (event_id, user_id) VALUES (?, ?)', [id, userId]);
         res.status(200).json({
             message: 'Event bookmarked',
-            bookmarked: true
+            bookmarked: true,
+            is_bookmarked: true
         });
     }
     catch (error) {
@@ -400,7 +384,7 @@ const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const { content, parentCommentId } = req.body;
+        const { content, parent_comment_id } = req.body;
         if (!content || !content.trim()) {
             res.status(400).json({ message: 'Comment content is required' });
             return;
@@ -414,8 +398,8 @@ const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         // Get user details for notification
         const user = yield (0, db_1.getAsync)('SELECT username, profile_image FROM users WHERE id = ?', [userId]);
         // If parentCommentId is provided, check if it exists and belongs to this event
-        if (parentCommentId) {
-            const parentComment = yield (0, db_1.getAsync)('SELECT id, user_id FROM comments WHERE id = ? AND event_id = ?', [parentCommentId, id]);
+        if (parent_comment_id) {
+            const parentComment = yield (0, db_1.getAsync)('SELECT id, user_id FROM comments WHERE id = ? AND event_id = ?', [parent_comment_id, id]);
             if (!parentComment) {
                 res.status(404).json({ message: 'Parent comment not found' });
                 return;
@@ -427,7 +411,7 @@ const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             }
         }
         // Add comment
-        const result = yield (0, db_1.runAsync)('INSERT INTO comments (event_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)', [id, userId, content, parentCommentId || null]);
+        const result = yield (0, db_1.runAsync)('INSERT INTO comments (event_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)', [id, userId, content, parent_comment_id || null]);
         // Send notification to event creator (if not the commenter)
         if (event.creator_id !== userId) {
             const commentNotification = `${user.username} commented on your event "${event.title}"`;

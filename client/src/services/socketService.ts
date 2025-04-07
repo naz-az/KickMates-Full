@@ -27,7 +27,9 @@ class SocketService {
       this.isConnected = true;
 
       // Send authentication immediately after connection
-      this.socket.emit('authenticate', { userId, token });
+      if (this.socket) {
+        this.socket.emit('authenticate', { userId, token });
+      }
     });
 
     this.socket.on('disconnect', () => {

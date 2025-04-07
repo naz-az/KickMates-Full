@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import Calendar from '../components/Calendar';
 import axios from 'axios';
 import { formatImageUrl } from '../utils/imageUtils';
 
@@ -64,23 +63,18 @@ interface ActivityData {
 const API_URL = 'http://localhost:5001/api';
 
 const DashboardPage = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [topEvents, setTopEvents] = useState<TopEvent[]>([]);
   const [myEvents, setMyEvents] = useState<UserEvent[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [activityData, setActivityData] = useState<ActivityData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   
   // Format current date
   const formattedDate = useMemo(() => {
     const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
     return new Date().toLocaleDateString('en-US', options as any);
-  }, []);
-  
-  const currentMonth = useMemo(() => {
-    const date = new Date();
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }, []);
   
   // Current week dates
@@ -158,16 +152,6 @@ const DashboardPage = () => {
 
     fetchData();
   }, []);
-  
-  // Days of the week data for UI display
-  const weekDays = useMemo(() => {
-    if (!activityData) return [];
-    
-    return activityData.days.map((day, index) => ({
-      day,
-      percent: activityData.eventsCreated[index]
-    }));
-  }, [activityData]);
   
   if (loading) {
     return (

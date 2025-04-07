@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 
 interface FooterProps {
-  sidebarCollapsed: boolean;
+  // Remove sidebarCollapsed property
 }
 
-const Footer = ({ sidebarCollapsed }: FooterProps) => {
+const Footer = ({}: FooterProps) => {
   const currentYear = new Date().getFullYear();
   
   return (

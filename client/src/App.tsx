@@ -190,7 +190,7 @@ const App = () => {
                 </div>
               </div>
               <div className={`${sidebarCollapsed ? 'ml-0' : 'ml-64'} transition-all duration-500 ease-in-out`}>
-                <Footer sidebarCollapsed={sidebarCollapsed} />
+                <Footer />
               </div>
             </div>
           </Router>

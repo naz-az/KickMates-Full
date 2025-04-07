@@ -10,6 +10,7 @@ const router = (0, express_1.Router)();
 router.post('/register', validator_1.validateRegister, userController_1.register);
 router.post('/login', validator_1.validateLogin, userController_1.login);
 router.get('/all', userController_1.getAllUsers);
+router.get('/search', userController_1.searchUsers);
 // Protected routes
 router.get('/profile', auth_1.authenticate, userController_1.getProfile);
 router.put('/profile', auth_1.authenticate, validator_1.validateProfileUpdate, userController_1.updateProfile);

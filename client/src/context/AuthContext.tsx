@@ -33,6 +33,7 @@ interface AuthContextType {
   logout: () => void;
   clearError: () => void;
   isAuthenticated: () => boolean;
+  updateUserState: (updatedUser: User) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -44,6 +45,7 @@ export const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   clearError: () => {},
   isAuthenticated: () => false,
+  updateUserState: () => {},
 });
 
 interface AuthProviderProps {
@@ -156,6 +158,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return !!user && !!localStorage.getItem('token');
   };
 
+  // Update user state function to be called when profile is updated
+  const updateUserState = (updatedUser: User) => {
+    setUser(updatedUser);
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -165,7 +172,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       register, 
       logout, 
       clearError,
-      isAuthenticated 
+      isAuthenticated,
+      updateUserState
     }}>
       {children}
     </AuthContext.Provider>

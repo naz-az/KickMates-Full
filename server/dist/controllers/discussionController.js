@@ -259,7 +259,7 @@ exports.deleteDiscussion = deleteDiscussion;
 const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        const { content, parentCommentId } = req.body;
+        const { content, parent_comment_id } = req.body;
         const userId = req.user.id;
         // Validate content
         if (!content) {
@@ -273,15 +273,15 @@ const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             return;
         }
         // If parentCommentId is provided, check if it exists and belongs to this discussion
-        if (parentCommentId) {
-            const parentComment = yield (0, db_1.getAsync)('SELECT id FROM comments WHERE id = ? AND discussion_id = ?', [parentCommentId, id]);
+        if (parent_comment_id) {
+            const parentComment = yield (0, db_1.getAsync)('SELECT id FROM comments WHERE id = ? AND discussion_id = ?', [parent_comment_id, id]);
             if (!parentComment) {
                 res.status(404).json({ message: 'Parent comment not found' });
                 return;
             }
         }
         // Add comment
-        const result = yield (0, db_1.runAsync)('INSERT INTO comments (discussion_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)', [id, userId, content, parentCommentId || null]);
+        const result = yield (0, db_1.runAsync)('INSERT INTO comments (discussion_id, user_id, content, parent_comment_id) VALUES (?, ?, ?, ?)', [id, userId, content, parent_comment_id || null]);
         // Get comment with user details
         const comment = yield (0, db_1.getAsync)(`SELECT c.id, c.content, c.created_at, c.parent_comment_id, c.thumbs_up, c.thumbs_down,
         u.id as user_id, u.username, u.profile_image,

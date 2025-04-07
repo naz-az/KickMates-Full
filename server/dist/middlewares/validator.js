@@ -109,26 +109,24 @@ exports.createEventValidationRules = [
         .trim()
         .isLength({ min: 3, max: 100 })
         .withMessage('Location must be between 3 and 100 characters'),
-    (0, express_validator_1.body)('event_date')
-        .isDate()
-        .withMessage('Invalid event date format'),
-    (0, express_validator_1.body)('event_time')
+    (0, express_validator_1.body)('start_date')
         .isString()
-        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-        .withMessage('Invalid time format (HH:MM)'),
+        .withMessage('Invalid start date format'),
+    (0, express_validator_1.body)('end_date')
+        .isString()
+        .withMessage('Invalid end date format'),
     (0, express_validator_1.body)('sport_type')
         .isString()
         .trim()
         .isLength({ min: 2, max: 50 })
         .withMessage('Sport type must be between 2 and 50 characters'),
-    (0, express_validator_1.body)('max_participants')
-        .optional()
+    (0, express_validator_1.body)('max_players')
         .isInt({ min: 2 })
-        .withMessage('Maximum participants must be at least 2'),
-    (0, express_validator_1.body)('skill_level')
+        .withMessage('Maximum players must be at least 2'),
+    (0, express_validator_1.body)('image_url')
         .optional()
-        .isIn(['Beginner', 'Intermediate', 'Advanced', 'Any'])
-        .withMessage('Invalid skill level')
+        .isString()
+        .withMessage('Invalid image URL')
 ];
 exports.updateEventValidationRules = [
     (0, express_validator_1.body)('title')
@@ -149,29 +147,28 @@ exports.updateEventValidationRules = [
         .trim()
         .isLength({ min: 3, max: 100 })
         .withMessage('Location must be between 3 and 100 characters'),
-    (0, express_validator_1.body)('event_date')
-        .optional()
-        .isDate()
-        .withMessage('Invalid event date format'),
-    (0, express_validator_1.body)('event_time')
+    (0, express_validator_1.body)('start_date')
         .optional()
         .isString()
-        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-        .withMessage('Invalid time format (HH:MM)'),
+        .withMessage('Invalid start date format'),
+    (0, express_validator_1.body)('end_date')
+        .optional()
+        .isString()
+        .withMessage('Invalid end date format'),
     (0, express_validator_1.body)('sport_type')
         .optional()
         .isString()
         .trim()
         .isLength({ min: 2, max: 50 })
         .withMessage('Sport type must be between 2 and 50 characters'),
-    (0, express_validator_1.body)('max_participants')
+    (0, express_validator_1.body)('max_players')
         .optional()
         .isInt({ min: 2 })
-        .withMessage('Maximum participants must be at least 2'),
-    (0, express_validator_1.body)('skill_level')
+        .withMessage('Maximum players must be at least 2'),
+    (0, express_validator_1.body)('image_url')
         .optional()
-        .isIn(['Beginner', 'Intermediate', 'Advanced', 'Any'])
-        .withMessage('Invalid skill level')
+        .isString()
+        .withMessage('Invalid image URL')
 ];
 // Discussion validation
 exports.createDiscussionValidationRules = [
@@ -240,12 +237,23 @@ exports.sendMessageValidationRules = [
         .withMessage('Invalid reply message ID')
 ];
 exports.createConversationValidationRules = [
-    (0, express_validator_1.body)('participants')
-        .isArray({ min: 1 })
-        .withMessage('At least one participant is required'),
-    (0, express_validator_1.body)('participants.*')
-        .isInt({ min: 1 })
-        .withMessage('All participant IDs must be valid')
+    (0, express_validator_1.body)()
+        .custom((value, { req }) => {
+        // Check if either participants or participantIds is provided
+        const { participants, participantIds } = req.body;
+        const userIds = participants || participantIds;
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            throw new Error('At least one participant is required (participants or participantIds)');
+        }
+        // Validate each participant ID
+        for (const id of userIds) {
+            const numId = Number(id);
+            if (isNaN(numId) || numId < 1 || !Number.isInteger(numId)) {
+                throw new Error('All participant IDs must be valid integers');
+            }
+        }
+        return true;
+    })
 ];
 // Vote validation
 exports.voteValidationRules = [

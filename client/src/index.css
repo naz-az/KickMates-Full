@@ -1251,4 +1251,20 @@
   }
 }
 
-/* Any additional custom styles can be added here */ 
+/* Any additional custom styles can be added here */
+
+/* Add toast animation keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); opacity: 0; }
+} 

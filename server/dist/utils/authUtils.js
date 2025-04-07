@@ -140,7 +140,8 @@ const authorizeAction = (actionType, entityType, paramName = 'id') => {
                 case 'message':
                     if (actionType === 'delete') {
                         // Only sender can delete
-                        isAuthorized = yield (0, exports.isResourceOwner)('messages', resourceId, userId);
+                        const message = yield (0, db_1.getAsync)('SELECT sender_id FROM messages WHERE id = ?', [resourceId]);
+                        isAuthorized = message && message.sender_id === userId;
                     }
                     else if (actionType === 'view') {
                         // Only conversation participants can view
@@ -151,46 +152,25 @@ const authorizeAction = (actionType, entityType, paramName = 'id') => {
                     }
                     break;
                 case 'comment':
-                    if (actionType === 'delete') {
-                        // User can delete if: 1) They are the comment author OR 2) They are the event/discussion creator
-                        const commentId = resourceId;
-                        // First check if comment exists and get its relationships
-                        const comment = yield (0, db_1.getAsync)(`SELECT c.id, c.user_id, c.event_id, c.discussion_id,
-                e.creator_id as event_creator_id,
-                d.creator_id as discussion_creator_id
-               FROM comments c
-               LEFT JOIN events e ON c.event_id = e.id
-               LEFT JOIN discussions d ON c.discussion_id = d.id
-               WHERE c.id = ?`, [commentId]);
-                        if (comment) {
-                            // User can delete if they are comment owner
-                            if (comment.user_id === userId) {
-                                isAuthorized = true;
-                            }
-                            // Or if they are the event creator
-                            else if (comment.event_id && comment.event_creator_id === userId) {
-                                isAuthorized = true;
-                            }
-                            // Or if they are the discussion creator
-                            else if (comment.discussion_id && comment.discussion_creator_id === userId) {
-                                isAuthorized = true;
-                            }
-                        }
+                    if (actionType === 'delete' || actionType === 'update') {
+                        // Only owner can delete/update
+                        isAuthorized = yield (0, exports.isResourceOwner)('comments', resourceId, userId);
+                    }
+                    else if (actionType === 'view') {
+                        // Public comments can be viewed by anyone
+                        isAuthorized = true;
                     }
                     break;
-                default:
-                    res.status(400).json({ message: 'Invalid entity type' });
-                    return;
             }
             if (!isAuthorized) {
-                res.status(403).json({ message: `Forbidden: You cannot ${actionType} this ${entityType}` });
+                res.status(403).json({ message: 'Not authorized to perform this action' });
                 return;
             }
             next();
         }
         catch (error) {
-            console.error('Error in authorization middleware:', error);
-            res.status(500).json({ message: 'Server error while checking authorization' });
+            console.error('Authorization error:', error);
+            res.status(500).json({ message: 'Server error during authorization' });
         }
     });
 };
