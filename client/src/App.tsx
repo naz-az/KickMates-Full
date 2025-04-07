@@ -70,6 +70,14 @@ const App = () => {
                           </ProtectedRoute>
                         } 
                       />
+                      <Route 
+                        path="/events/:id/delete" 
+                        element={
+                          <ProtectedRoute>
+                            <EventDetailPage deleteMode={true} />
+                          </ProtectedRoute>
+                        } 
+                      />
 
                       {/* Discussion Routes */}
                       <Route path="/discussions" element={<DiscussionsPage />} />

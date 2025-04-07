@@ -242,8 +242,16 @@ export const getConversation = (conversationId: string | number) => {
   return api.get(`/messages/conversations/${conversationId}`);
 };
 
-export const getMessages = (conversationId: string | number) => {
-  return api.get(`/messages/conversations/${conversationId}/messages`);
+export const getMessages = async (conversationId: string | number) => {
+  const response = await api.get(`/messages/conversations/${conversationId}/messages`);
+  
+  // Transform the response to ensure it has the expected structure
+  if (Array.isArray(response.data)) {
+    // If the response is an array, wrap it in an object with a messages property
+    return { data: { messages: response.data } };
+  }
+  
+  return response;
 };
 
 export const sendMessage = (conversationId: string | number, content: string, replyToId?: number | null) => {
@@ -266,7 +274,16 @@ export const deleteMessage = (conversationId: string | number, messageId: number
 };
 
 export const createConversation = (participantIds: number[]) => {
-  return api.post('/messages/conversations', { participantIds });
+  // Ensure we're sending a clean array of numbers
+  const cleanParticipantIds = participantIds.map(id => Number(id));
+  console.log('API createConversation called with:', { participantIds: cleanParticipantIds });
+  
+  // Use a clean object for the payload
+  const payload = {
+    participants: cleanParticipantIds  // Changed from participantIds to participants to match backend validation
+  };
+  
+  return api.post('/messages/conversations', payload);
 };
 
 // Discussions API

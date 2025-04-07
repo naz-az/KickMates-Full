@@ -32,8 +32,8 @@ const EditEventPage = () => {
 
   // Add debugging useEffect to track formData changes
   useEffect(() => {
-    //console.log('Current formData.sport_type:', formData.sport_type);
-    //console.log('Original sport_type from API:', originalSportType);
+    console.log('Current formData.sport_type:', formData.sport_type);
+    console.log('Original sport_type from API:', originalSportType);
   }, [formData.sport_type, originalSportType]);
   
   const sportTypes = [
@@ -58,7 +58,7 @@ const EditEventPage = () => {
   // Ensure sport_type is always set correctly
   useEffect(() => {
     if (originalSportType && (!formData.sport_type || formData.sport_type === '')) {
-      //console.log('Fixing sport_type to match original:', originalSportType);
+      console.log('Fixing sport_type to match original:', originalSportType);
       setFormData(prev => ({
         ...prev,
         sport_type: originalSportType
@@ -69,8 +69,8 @@ const EditEventPage = () => {
   // Check for case sensitivity issues or invalid sport type
   useEffect(() => {
     if (originalSportType && !sportTypes.includes(originalSportType)) {
-      //console.log('Warning: Sport type from API is not in sportTypes array:', originalSportType);
-      //console.log('Available sport types:', sportTypes);
+      console.log('Warning: Sport type from API is not in sportTypes array:', originalSportType);
+      console.log('Available sport types:', sportTypes);
       
       // Try to find a case-insensitive match
       const matchedSport = sportTypes.find(
@@ -78,7 +78,7 @@ const EditEventPage = () => {
       );
       
       if (matchedSport) {
-        //console.log('Found case-insensitive match:', matchedSport);
+        console.log('Found case-insensitive match:', matchedSport);
         // Update to the correctly cased sport type
         setFormData(prev => ({
           ...prev,
@@ -111,7 +111,7 @@ const EditEventPage = () => {
         };
         
         // Log the sport type from the API response
-        //console.log('Event sport_type from API:', event.sport_type);
+        console.log('Event sport_type from API:', event.sport_type);
         // Store the original sport type
         setOriginalSportType(event.sport_type || '');
         
@@ -129,9 +129,9 @@ const EditEventPage = () => {
         });
         
         // Log the form data after setting it
-        //console.log('Form data after setting:', {sport_type: event.sport_type});
+        console.log('Form data after setting:', {sport_type: event.sport_type});
       } catch (error) {
-        //console.error('Error fetching event details:', error);
+        console.error('Error fetching event details:', error);
         setError('Failed to load event details. Please try again later.');
       } finally {
         setIsLoading(false);
@@ -148,7 +148,7 @@ const EditEventPage = () => {
     
     // Debug log for sport_type changes
     if (name === 'sport_type') {
-      //console.log('Sport type changed to:', value);
+      console.log('Sport type changed to:', value);
     }
     
     setFormData({
@@ -266,7 +266,7 @@ const EditEventPage = () => {
         try {
           await uploadEventImage(id!, selectedImage);
         } catch (imgErr) {
-          //console.error('Error uploading image:', imgErr);
+          console.error('Error uploading image:', imgErr);
           setError('Event was updated but image upload failed. Please try uploading the image again.');
           setIsSubmitting(false);
           setIsUploadingImage(false);
@@ -278,7 +278,7 @@ const EditEventPage = () => {
       
       navigate(`/events/${id}`);
     } catch (error) {
-      //console.error('Error updating event:', error);
+      console.error('Error updating event:', error);
       setError('Failed to update event. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -338,9 +338,9 @@ const EditEventPage = () => {
               <div className="form-group">
                 <label htmlFor="sport_type" className="block text-text-dark font-medium mb-2">Sport Type*</label>
                 {/* Debug info for sport type */}
-                {/* <div className="text-xs text-gray-500 mb-1">
+                <div className="text-xs text-gray-500 mb-1">
                   Current sport: {formData.sport_type || 'None'}, Original: {originalSportType || 'None'}
-                </div> */}
+                </div>
                 <select
                   id="sport_type"
                   name="sport_type"

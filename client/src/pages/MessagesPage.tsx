@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getConversations, getMessages, sendMessage, deleteMessage } from '../services/api';
+import { getConversations, getMessages, sendMessage, deleteMessage, getAllUsers, createConversation } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { socketService, useSocket } from '../services/socketService';
 
@@ -13,6 +13,8 @@ interface Contact {
   time: string;
   unread: number;
   online: boolean;
+  isGroup: boolean;
+  participants: ConversationParticipant[];
 }
 
 interface ConversationParticipant {
@@ -57,6 +59,13 @@ interface MessageData {
   createdAt: string;
 }
 
+interface UserOption {
+  id: number;
+  username: string;
+  full_name: string;
+  profile_image: string;
+}
+
 const MessagesPage = () => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
@@ -88,6 +97,14 @@ const MessagesPage = () => {
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const { isConnected } = useSocket();
+
+  // New state for creating conversation
+  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [allUsers, setAllUsers] = useState<UserOption[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserOption[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<UserOption[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   // Function to handle profile image clicks
   const handleProfileClick = (userId: number, event: React.MouseEvent) => {
@@ -135,8 +152,8 @@ const MessagesPage = () => {
       try {
         setLoadingMessages(true);
         const response = await getMessages(activeConversation);
-        // console.log('Messages fetched from server:', response.data.messages);
-        setMessages(response.data.messages);
+        // console.log('Messages data:', response.data.messages);
+        setMessages(response.data.messages || []);
         setLoadingMessages(false);
       } catch (error) {
         console.error('Error fetching messages:', error);
@@ -172,14 +189,29 @@ const MessagesPage = () => {
     // Get the first participant's name and image
     const participant = conversation.participants[0];
     
+    // Create a display name based on number of participants
+    let displayName = '';
+    if (conversation.participants.length === 0) {
+      displayName = 'No participants';
+    } else if (conversation.participants.length === 1) {
+      displayName = participant.full_name || participant.username;
+    } else {
+      // For group conversations, show names of all participants
+      displayName = conversation.participants
+        .map(p => p.full_name || p.username)
+        .join(', ');
+    }
+    
     return {
       id: conversation.id,
-      name: participant.full_name || participant.username,
+      name: displayName,
       avatar: participant.profile_image || 'https://i.pravatar.cc/150?u=user' + participant.id,
       lastMessage: conversation.lastMessage ? conversation.lastMessage.content : 'No messages yet',
       time: conversation.lastMessage ? conversation.lastMessage.displayTime : 'Never',
       unread: conversation.unreadCount,
-      online: Math.random() > 0.5 // Random online status for demo
+      online: Math.random() > 0.5, // Random online status for demo
+      isGroup: conversation.participants.length > 1,
+      participants: conversation.participants
     };
   });
 
@@ -282,26 +314,27 @@ const MessagesPage = () => {
   };
 
   // Group messages by date
-  const groupedMessages = messages.reduce<Record<string, MessageData[]>>((groups, message) => {
-    const date = message.date;
+  const groupedMessages = messages?.reduce<Record<string, MessageData[]>>((groups, message) => {
+    if (!message) return groups;
+    const date = message.date || 'Unknown';
     if (!groups[date]) {
       groups[date] = [];
     }
     groups[date].push(message);
     return groups;
-  }, {});
+  }, {}) || {};
   
   // Ensure messages within each date group are properly sorted by creation time
   // This fixes the issue where replies appear out of order after page refresh
-  Object.keys(groupedMessages).forEach(date => {
-    groupedMessages[date].sort((a, b) => {
+  Object.keys(groupedMessages || {}).forEach(date => {
+    groupedMessages[date]?.sort((a, b) => {
       // Sort by message ID (sequential) instead of timestamps
       return a.id - b.id;
     });
   });
 
   // Get total unread messages count
-  const totalUnread = conversations.reduce((count, conversation) => count + conversation.unreadCount, 0);
+  const totalUnread = conversations?.reduce((count, conversation) => count + conversation.unreadCount, 0) || 0;
 
   // New handlers for WhatsApp-like features
   
@@ -589,6 +622,132 @@ const MessagesPage = () => {
     };
   }, [user, activeConversation]);
 
+  // Fetch all users for recipient selection
+  useEffect(() => {
+    if (showNewMessageModal) {
+      const fetchUsers = async () => {
+        try {
+          setIsLoadingUsers(true);
+          const response = await getAllUsers();
+          console.log('All users response:', response.data);
+          
+          // Make sure we have users and it's an array
+          if (response.data && response.data.users && Array.isArray(response.data.users)) {
+            // Filter out current user from the list
+            const filteredUsersList = response.data.users.filter(
+              (u: UserOption) => u.id !== Number(user?.id)
+            );
+            setAllUsers(filteredUsersList);
+            setFilteredUsers(filteredUsersList);
+          } else {
+            console.error('Invalid users data format', response.data);
+            setAllUsers([]);
+            setFilteredUsers([]);
+          }
+          setIsLoadingUsers(false);
+        } catch (error) {
+          console.error('Error fetching users:', error);
+          setIsLoadingUsers(false);
+          setAllUsers([]);
+          setFilteredUsers([]);
+        }
+      };
+      
+      fetchUsers();
+    }
+  }, [showNewMessageModal, user?.id]);
+
+  // Filter users based on search query
+  useEffect(() => {
+    if (userSearchQuery.trim() === '') {
+      setFilteredUsers(allUsers);
+    } else {
+      const lowercaseQuery = userSearchQuery.toLowerCase();
+      const filtered = allUsers.filter(
+        u => 
+          u.username.toLowerCase().includes(lowercaseQuery) || 
+          (u.full_name && u.full_name.toLowerCase().includes(lowercaseQuery))
+      );
+      setFilteredUsers(filtered);
+    }
+  }, [userSearchQuery, allUsers]);
+
+  // Handle selecting a user as recipient
+  const handleSelectUser = (selectedUser: UserOption) => {
+    // Check if user is already selected
+    if (!selectedUsers.some(u => u.id === selectedUser.id)) {
+      setSelectedUsers([...selectedUsers, selectedUser]);
+    }
+    setUserSearchQuery(''); // Clear search after selection
+  };
+
+  // Handle removing a selected user
+  const handleRemoveUser = (userId: number) => {
+    setSelectedUsers(selectedUsers.filter(u => u.id !== userId));
+  };
+
+  // Handle creating a new conversation
+  const handleCreateConversation = async () => {
+    if (selectedUsers.length === 0) return;
+    
+    try {
+      // Make sure we're sending numeric IDs
+      const participantIds = selectedUsers.map(u => Number(u.id));
+      
+      console.log('Creating conversation with participants:', participantIds);
+      
+      // Include current user in participants if not already included
+      if (userId && !participantIds.includes(userId)) {
+        console.log('Adding current user to participants:', userId);
+        participantIds.push(userId);
+      }
+      
+      console.log('Final participants list:', participantIds);
+      
+      const response = await createConversation(participantIds);
+      console.log('Conversation creation response:', response.data);
+      
+      // Close the modal
+      setShowNewMessageModal(false);
+      setSelectedUsers([]);
+      
+      // Navigate to the new conversation
+      const newConversationId = response.data.conversationId;
+      
+      if (!newConversationId) {
+        console.error('No conversation ID returned from server');
+        alert('Failed to create conversation. Please try again.');
+        return;
+      }
+      
+      // Navigate to the new conversation
+      navigate(`/messages/${newConversationId}`);
+      
+      // Refresh conversations list
+      const conversationsResponse = await getConversations();
+      setConversations(conversationsResponse.data.conversations);
+      
+      // Set the active conversation
+      setActiveConversation(newConversationId);
+      
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      
+      // Add more detailed error info
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+        
+        if (error.response.data && error.response.data.message) {
+          alert(`Failed to create conversation: ${error.response.data.message}`);
+          return;
+        }
+      }
+      
+      alert('Failed to create conversation. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-4 flex justify-center items-center h-screen">
@@ -701,6 +860,33 @@ const MessagesPage = () => {
           height: 0.75rem;
           background-color: #10b981;
           border-radius: 9999px;
+          border: 2px solid white;
+        }
+        
+        /* Styles for group conversation avatars */
+        .avatar-group {
+          display: flex;
+          margin-right: 0.5rem;
+        }
+        
+        .avatar-group-item {
+          width: 2rem;
+          height: 2rem;
+          border-radius: 9999px;
+          border: 2px solid white;
+          object-fit: cover;
+        }
+        
+        .avatar-group-more {
+          width: 2rem;
+          height: 2rem;
+          border-radius: 9999px;
+          background-color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          color: #4b5563;
           border: 2px solid white;
         }
         
@@ -857,6 +1043,91 @@ const MessagesPage = () => {
           background-color: #93c5fd;
           cursor: not-allowed;
         }
+        
+        /* Styles for new message modal */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 50;
+        }
+        
+        .modal-content {
+          background-color: white;
+          border-radius: 0.5rem;
+          max-width: 500px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .modal-header {
+          padding: 1rem;
+          border-bottom: 1px solid #e5e7eb;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .modal-body {
+          padding: 1rem;
+        }
+        
+        .modal-footer {
+          padding: 1rem;
+          border-top: 1px solid #e5e7eb;
+          display: flex;
+          justify-content: flex-end;
+        }
+        
+        .user-option {
+          display: flex;
+          align-items: center;
+          padding: 0.5rem;
+          cursor: pointer;
+          border-radius: 0.25rem;
+        }
+        
+        .user-option:hover {
+          background-color: #f3f4f6;
+        }
+        
+        .selected-users {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+        }
+        
+        .selected-user-tag {
+          display: flex;
+          align-items: center;
+          background-color: #e5e7eb;
+          padding: 0.25rem 0.5rem;
+          border-radius: 9999px;
+          font-size: 0.875rem;
+        }
+        
+        .user-avatar {
+          width: 2rem;
+          height: 2rem;
+          border-radius: 9999px;
+          object-fit: cover;
+          margin-right: 0.5rem;
+        }
+        
+        .loading-spinner {
+          display: flex;
+          justify-content: center;
+          padding: 1rem;
+        }
         `}
       </style>
       
@@ -870,11 +1141,21 @@ const MessagesPage = () => {
               </svg>
               Messages
             </h2>
-            {totalUnread > 0 && (
-              <span className="bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {totalUnread}
-              </span>
-            )}
+            <div className="flex items-center">
+              {totalUnread > 0 && (
+                <span className="bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mr-2">
+                  {totalUnread}
+                </span>
+              )}
+              <button 
+                onClick={() => setShowNewMessageModal(true)}
+                className="p-1 bg-primary text-white rounded-full hover:bg-blue-600 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
           </div>
           
           <div className="chat-sidebar-search">
@@ -896,12 +1177,32 @@ const MessagesPage = () => {
                   onClick={() => handleSelectContact(contact.id)}
                 >
                   <div className="relative">
-                    <img 
-                      src={contact.avatar} 
-                      alt={contact.name} 
-                      className={`chat-avatar ${contact.online ? 'online' : ''} cursor-pointer`}
-                      onClick={(e) => handleProfileClick(contact.id, e)}
-                    />
+                    {contact.isGroup ? (
+                      <div className="flex -space-x-2">
+                        {contact.participants.slice(0, 2).map((participant, index) => (
+                          <img 
+                            key={participant.id}
+                            src={participant.profile_image || `https://i.pravatar.cc/150?u=user${participant.id}`}
+                            alt={participant.full_name || participant.username}
+                            className={`chat-avatar border-2 border-white ${contact.online ? 'online' : ''} cursor-pointer`}
+                            style={{ zIndex: 2 - index, width: '2rem', height: '2rem' }}
+                            onClick={(e) => handleProfileClick(participant.id, e)}
+                          />
+                        ))}
+                        {contact.participants.length > 2 && (
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-700 font-medium border-2 border-white" style={{ zIndex: 0 }}>
+                            +{contact.participants.length - 2}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <img 
+                        src={contact.avatar} 
+                        alt={contact.name} 
+                        className={`chat-avatar ${contact.online ? 'online' : ''} cursor-pointer`}
+                        onClick={(e) => handleProfileClick(contact.id, e)}
+                      />
+                    )}
                   </div>
                   
                   <div className="chat-user-info">
@@ -929,23 +1230,51 @@ const MessagesPage = () => {
           {activeConversationData && contacts.length > 0 && (
             <div className="chat-header">
               <div className="chat-user">
-                <img 
-                  src={contacts.find(c => c.id === activeConversation)?.avatar} 
-                  alt={contacts.find(c => c.id === activeConversation)?.name}
-                  className="chat-avatar cursor-pointer"
-                  onClick={(e) => {
-                    const contactId = contacts.find(c => c.id === activeConversation)?.id;
-                    if (contactId) handleProfileClick(contactId, e);
-                  }}
-                />
+                {/* Show multiple avatars for group conversations */}
+                {contacts.find(c => c.id === activeConversation)?.isGroup ? (
+                  <div className="flex -space-x-2 mr-2">
+                    {contacts.find(c => c.id === activeConversation)?.participants.slice(0, 3).map((participant, index) => (
+                      <img 
+                        key={participant.id}
+                        src={participant.profile_image || `https://i.pravatar.cc/150?u=user${participant.id}`}
+                        alt={participant.full_name || participant.username}
+                        className="chat-avatar cursor-pointer border-2 border-white"
+                        style={{ zIndex: 3 - index }}
+                        onClick={(e) => handleProfileClick(participant.id, e)}
+                      />
+                    ))}
+                    {contacts.find(c => c.id === activeConversation)?.participants.length > 3 && (
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-700 font-medium border-2 border-white" style={{ zIndex: 0 }}>
+                        +{contacts.find(c => c.id === activeConversation)?.participants.length - 3}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <img 
+                    src={contacts.find(c => c.id === activeConversation)?.avatar} 
+                    alt={contacts.find(c => c.id === activeConversation)?.name}
+                    className="chat-avatar cursor-pointer mr-2"
+                    onClick={(e) => {
+                      const contactId = contacts.find(c => c.id === activeConversation)?.id;
+                      if (contactId) handleProfileClick(contactId, e);
+                    }}
+                  />
+                )}
                 <div>
                   <div className="font-medium">
                     {contacts.find(c => c.id === activeConversation)?.name}
                   </div>
-                  {contacts.find(c => c.id === activeConversation)?.online ? (
-                    <div className="chat-user-status">Online</div>
+                  {/* Show participant count for group conversations */}
+                  {contacts.find(c => c.id === activeConversation)?.isGroup ? (
+                    <div className="text-sm text-gray-500">
+                      {contacts.find(c => c.id === activeConversation)?.participants.length} participants
+                    </div>
                   ) : (
-                    <div className="text-sm text-gray-500">Offline</div>
+                    contacts.find(c => c.id === activeConversation)?.online ? (
+                      <div className="chat-user-status">Online</div>
+                    ) : (
+                      <div className="text-sm text-gray-500">Offline</div>
+                    )
                   )}
                 </div>
               </div>
@@ -959,11 +1288,6 @@ const MessagesPage = () => {
                 <button className="chat-action-button">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </button>
-                <button className="chat-action-button">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                   </svg>
                 </button>
               </div>
@@ -1325,6 +1649,106 @@ const MessagesPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* New Message Modal */}
+      {showNewMessageModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 className="text-lg font-medium">New Message</h3>
+              <button 
+                onClick={() => {
+                  setShowNewMessageModal(false);
+                  setSelectedUsers([]);
+                  setUserSearchQuery('');
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To:
+                </label>
+                <div className="selected-users">
+                  {selectedUsers.map(user => (
+                    <div key={user.id} className="selected-user-tag">
+                      <img 
+                        src={user.profile_image || `https://i.pravatar.cc/150?u=user${user.id}`} 
+                        alt={user.full_name || user.username}
+                        className="w-4 h-4 rounded-full mr-1"
+                      />
+                      <span>{user.full_name || user.username}</span>
+                      <button 
+                        onClick={() => handleRemoveUser(user.id)}
+                        className="ml-1 text-gray-500 hover:text-gray-700"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <input 
+                  type="text" 
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  placeholder="Search for users..." 
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div className="mt-2 max-h-60 overflow-y-auto">
+                {isLoadingUsers ? (
+                  <div className="loading-spinner">
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
+                  </div>
+                ) : filteredUsers.length > 0 ? (
+                  filteredUsers.map(user => (
+                    <div 
+                      key={user.id} 
+                      className="user-option"
+                      onClick={() => handleSelectUser(user)}
+                    >
+                      <img 
+                        src={user.profile_image || `https://i.pravatar.cc/150?u=user${user.id}`} 
+                        alt={user.full_name || user.username}
+                        className="user-avatar"
+                      />
+                      <div>
+                        <div className="font-medium">{user.full_name || user.username}</div>
+                        {user.full_name && <div className="text-sm text-gray-500">@{user.username}</div>}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center p-2 text-gray-500">
+                    {userSearchQuery ? 'No users found' : 'Start typing to search for users'}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={handleCreateConversation}
+                disabled={selectedUsers.length === 0}
+                className={`px-4 py-2 rounded-md ${
+                  selectedUsers.length === 0 
+                    ? 'bg-blue-300 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                } text-white transition-colors`}
+              >
+                Start Conversation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

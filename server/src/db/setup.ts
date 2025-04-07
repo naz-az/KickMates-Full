@@ -198,6 +198,19 @@ db.serialize(() => {
     )
   `);
 
+  // Message likes table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS message_likes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (message_id) REFERENCES messages (id),
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      UNIQUE (message_id, user_id)
+    )
+  `);
+
   console.log('All tables created successfully');
 });
 

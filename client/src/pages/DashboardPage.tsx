@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Calendar from '../components/Calendar';
 import axios from 'axios';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface TopEvent {
   id: number;
@@ -216,7 +217,7 @@ const DashboardPage = () => {
                 <div key={event.id} className="border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-200 bg-white">
                   <div className="relative">
                     <img 
-                      src={event.img_url} 
+                      src={formatImageUrl(event.img_url)} 
                       alt={event.name} 
                       className="w-full h-40 object-cover"
                     />
@@ -235,7 +236,7 @@ const DashboardPage = () => {
                     <div className="flex justify-between items-center">
                       <div className="flex items-center">
                         <img 
-                          src={event.img_url} 
+                          src={formatImageUrl(event.img_url)} 
                           alt={event.name} 
                           className="w-7 h-7 rounded-full mr-2 border border-gray-100"
                         />
@@ -277,7 +278,7 @@ const DashboardPage = () => {
                   <div className="flex items-center">
                     <div className="relative w-12 h-12 flex-shrink-0 mr-4">
                       <img 
-                        src={event.image_url} 
+                        src={formatImageUrl(event.image_url)} 
                         alt={event.title} 
                         className="w-full h-full rounded-lg object-cover shadow-sm"
                       />
@@ -302,7 +303,7 @@ const DashboardPage = () => {
                       {event.participants.slice(0, 4).map((avatar, index) => (
                         <img 
                           key={index} 
-                          src={avatar} 
+                          src={formatImageUrl(avatar)} 
                           alt="Participant" 
                           className="w-7 h-7 rounded-full border-2 border-white shadow-sm"
                         />

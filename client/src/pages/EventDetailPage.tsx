@@ -1,10 +1,15 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getEventById, joinEvent, leaveEvent, bookmarkEvent, addComment, deleteComment } from '../services/api';
+import { getEventById, joinEvent, leaveEvent, bookmarkEvent, addComment, deleteComment, deleteEvent } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import Comment from '../components/Comment';
+import { formatImageUrl } from '../utils/imageUtils';
 
-const EventDetailPage = () => {
+interface EventDetailPageProps {
+  deleteMode?: boolean;
+}
+
+const EventDetailPage = ({ deleteMode = false }: EventDetailPageProps) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -26,6 +31,8 @@ const EventDetailPage = () => {
   const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteEventConfirmation, setShowDeleteEventConfirmation] = useState(deleteMode);
 
   // Add a function to get bookmark key for local storage
   const getBookmarkKey = useCallback((eventId: string, userId?: number) => {
@@ -48,6 +55,13 @@ const EventDetailPage = () => {
     fetchEventDetails();
   }, [id]);
 
+  useEffect(() => {
+    // If in delete mode, show the delete confirmation when the event is loaded
+    if (deleteMode && event && !showDeleteEventConfirmation) {
+      setShowDeleteEventConfirmation(true);
+    }
+  }, [deleteMode, event]);
+
   // Add a debug effect to log when participation status changes
   // useEffect(() => {
     // console.log("Participation status changed to:", participationStatus);
@@ -58,12 +72,12 @@ const EventDetailPage = () => {
     setError(null);
     
     try {
-      console.log("Fetching event details for ID:", id);
+      //console.log("Fetching event details for ID:", id);
       const token = localStorage.getItem('token');
       // console.log("Using auth token:", token ? "Present" : "Missing");
       
       const response = await getEventById(id!);
-      console.log("Raw API response:", response);
+      //console.log("Raw API response:", response);
       
       const { event, participants, comments, isBookmarked: serverBookmarked, participationStatus } = response.data;
       
@@ -87,7 +101,7 @@ const EventDetailPage = () => {
           // If server and local storage disagree, prefer local storage but update server silently
           const localBookmarked = cachedBookmark === 'true';
           if (serverBookmarked !== localBookmarked) {
-            console.log("Bookmark state mismatch - Local:", localBookmarked, "Server:", serverBookmarked);
+            //console.log("Bookmark state mismatch - Local:", localBookmarked, "Server:", serverBookmarked);
             // Set UI state to cached value
             setIsBookmarked(localBookmarked);
             // Silently sync with server (no await to not block rendering)
@@ -98,7 +112,7 @@ const EventDetailPage = () => {
                 localStorage.setItem(bookmarkKey, String(response.data.bookmarked));
               });
             } catch (err) {
-              console.error("Silent bookmark sync failed:", err);
+              //console.error("Silent bookmark sync failed:", err);
             }
           } else {
             // If they match, use the server value
@@ -125,7 +139,7 @@ const EventDetailPage = () => {
       // This is a workaround for backend inconsistency 
       if (!participationStatus && user && participants.some((p: any) => p.user_id === user.id)) {
         const userParticipant = participants.find((p: any) => p.user_id === user.id);
-        console.log("WARNING: Inconsistency detected! Setting participation status from participants array:", userParticipant.status);
+        //console.log("WARNING: Inconsistency detected! Setting participation status from participants array:", userParticipant.status);
         setParticipationStatus(userParticipant.status);
       }
       
@@ -137,11 +151,11 @@ const EventDetailPage = () => {
       }));
       
     } catch (err: any) {
-      console.error('Error fetching event details:', err);
+      //console.error('Error fetching event details:', err);
       
       if (err.response) {
-        console.error('Response status:', err.response.status);
-        console.error('Response data:', err.response.data);
+        //console.error('Response status:', err.response.status);
+        //console.error('Response data:', err.response.data);
       }
       
       setError('Failed to load event details. Please try again later.');
@@ -156,11 +170,11 @@ const EventDetailPage = () => {
       return;
     }
     
-    console.log("Attempting to join event with ID:", id);
+    //console.log("Attempting to join event with ID:", id);
     
     try {
       const response = await joinEvent(id!);
-      console.log("Join event API response:", response.data);
+      //console.log("Join event API response:", response.data);
       
       // Directly update participation status without waiting for fetchEventDetails
       // This ensures immediate UI feedback
@@ -188,21 +202,21 @@ const EventDetailPage = () => {
           }));
         }
         
-        console.log("Optimistically added user to participants:", newParticipant);
+        //console.log("Optimistically added user to participants:", newParticipant);
       }
       
       // Now refresh all event details to get latest data
       await fetchEventDetails();
       
     } catch (err: any) {
-      console.error('Error joining event:', err);
+      //console.error('Error joining event:', err);
       
       // If the error is because user is already participating, directly check participants
       if (err.response && err.response.status === 400 && 
           err.response.data && err.response.data.message && 
           err.response.data.message.includes('already participating')) {
         
-        console.log("User is already participating, checking participants data");
+        //console.log("User is already participating, checking participants data");
         
         try {
           // Fetch fresh data
@@ -212,7 +226,7 @@ const EventDetailPage = () => {
           // Find user in participants
           if (user && participants.some((p: any) => p.user_id === user.id)) {
             const userParticipation = participants.find((p: any) => p.user_id === user.id);
-            console.log("FIXING DATA: Setting status to", userParticipation.status);
+            //console.log("FIXING DATA: Setting status to", userParticipation.status);
             
             // Manually set status and update UI
             setParticipationStatus(userParticipation.status);
@@ -220,7 +234,7 @@ const EventDetailPage = () => {
             setEvent(event);
           }
         } catch (detailsErr) {
-          console.error("Failed to fetch details for fixup:", detailsErr);
+          //console.error("Failed to fetch details for fixup:", detailsErr);
         }
         
         return;
@@ -232,7 +246,7 @@ const EventDetailPage = () => {
 
   const handleLeaveEvent = async () => {
     // Remove confirmation dialog since it's now handled by the LeaveButton component
-    console.log("Attempting to leave event with ID:", id);
+    //console.log("Attempting to leave event with ID:", id);
     
     try {
       // Optimistic UI update - remove user from participants before API response
@@ -253,20 +267,20 @@ const EventDetailPage = () => {
           }));
         }
         
-        console.log("Optimistically removed user from participants");
+        //console.log("Optimistically removed user from participants");
       }
       
       const response = await leaveEvent(id!);
-      console.log("Leave event API response:", response.data);
+      //console.log("Leave event API response:", response.data);
       
       // Refresh event details to update waiting list promotions, etc.
       await fetchEventDetails();
     } catch (err: any) {
-      console.error('Error leaving event:', err);
+      //console.error('Error leaving event:', err);
       
       if (err.response) {
-        console.error('Response status:', err.response.status);
-        console.error('Response data:', err.response.data);
+        //console.error('Response status:', err.response.status);
+        //console.error('Response data:', err.response.data);
       }
       
       // Refresh data to restore correct state in case of error
@@ -293,12 +307,12 @@ const EventDetailPage = () => {
       if (id && user) {
         const bookmarkKey = getBookmarkKey(id, user.id);
         localStorage.setItem(bookmarkKey, String(newBookmarkState));
-        console.log("Cached bookmark state:", newBookmarkState);
+        //console.log("Cached bookmark state:", newBookmarkState);
       }
       
-      console.log("Toggling bookmark for event:", id);
+      //console.log("Toggling bookmark for event:", id);
       const response = await bookmarkEvent(id!);
-      console.log("Bookmark API response:", response.data);
+      //console.log("Bookmark API response:", response.data);
       
       // Update state with server response
       const serverBookmarkState = response.data.bookmarked;
@@ -311,16 +325,16 @@ const EventDetailPage = () => {
       }
       
       // Log for debugging
-      console.log("Updated bookmark status:", response.data.bookmarked);
+      //console.log("Updated bookmark status:", response.data.bookmarked);
     } catch (err: any) {
-      console.error('Error bookmarking event:', err);
+      //console.error('Error bookmarking event:', err);
       
       // Revert to original state if there was an error
       setIsBookmarked(isBookmarked);
       
       if (err.response) {
-        console.error('Response status:', err.response.status);
-        console.error('Response data:', err.response.data);
+        //console.error('Response status:', err.response.status);
+        //console.error('Response data:', err.response.data);
       }
       
       setError('Failed to bookmark event. Please try again.');
@@ -344,7 +358,7 @@ const EventDetailPage = () => {
       setCommentText('');
       setReplyToComment(null);
     } catch (err) {
-      console.error('Error submitting comment:', err);
+      //console.error('Error submitting comment:', err);
       setError('Failed to submit comment. Please try again.');
     } finally {
       setIsSubmittingComment(false);
@@ -363,11 +377,11 @@ const EventDetailPage = () => {
       try {
         await deleteComment(id!, commentToDelete.toString());
       } catch (err: any) {
-        console.error('Error deleting comment:', err);
+        //console.error('Error deleting comment:', err);
         
         // If comment doesn't exist on server (404), we should still remove it from the UI
         if (err.response && err.response.status === 404) {
-          console.log('Comment not found on server, but removing from UI');
+          //console.log('Comment not found on server, but removing from UI');
         } else {
           // For other errors, alert the user and abort
           setError('Failed to delete comment. Please try again.');
@@ -389,7 +403,7 @@ const EventDetailPage = () => {
         setCommentPage(maxPage);
       }
     } catch (err) {
-      console.error('Unexpected error in confirmDeleteComment:', err);
+      //console.error('Unexpected error in confirmDeleteComment:', err);
     } finally {
       setShowDeleteCommentModal(false);
       setCommentToDelete(null);
@@ -418,7 +432,7 @@ const EventDetailPage = () => {
       // Fetch event details to properly update the nested comment structure
       fetchEventDetails();
     } catch (err) {
-      console.error('Error adding reply:', err);
+      //console.error('Error adding reply:', err);
       setError('Failed to add reply. Please try again.');
     }
   };
@@ -513,7 +527,7 @@ const EventDetailPage = () => {
 
   // Button components to avoid repetition and ensure consistency
   const JoinButton = () => {
-    console.log("Rendering JoinButton. User:", user?.id, "isFull:", isFull);
+    //console.log("Rendering JoinButton. User:", user?.id, "isFull:", isFull);
     return (
       <button 
         onClick={handleJoinEvent}
@@ -621,45 +635,172 @@ const EventDetailPage = () => {
     navigate(`/profile/${userId}`);
   };
 
+  // Default image if none provided
+  const defaultImage = 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1600&q=80';
+
+  // Calculate if event is full - moved after event null check
+  const isFull = event?.current_players >= event?.max_players;
+  
+  // Check if user is creator
+  const isCreator = user && event && user.id === event.creator_id;
+
+  const handleDeleteEvent = async () => {
+    if (!user || !event || user.id !== event.creator_id) {
+      setError('You do not have permission to delete this event');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteEvent(id!);
+      // Redirect to events page after successful deletion
+      navigate('/events', { state: { message: 'Event deleted successfully' } });
+    } catch (err: any) {
+      //console.error('Error deleting event:', err);
+      setError('Failed to delete event. Please try again.');
+      setIsDeleting(false);
+      setShowDeleteEventConfirmation(false);
+    }
+  };
+
+  const cancelDeleteEvent = () => {
+    setShowDeleteEventConfirmation(false);
+    // Only navigate away if in deleteMode
+    if (deleteMode) {
+      navigate(`/events/${id}`);
+    }
+  };
+
+  // Add this right after the LeaveButton component, before the isParticipant function
+  const DeleteEventModal = () => {
+    // If in delete mode but event isn't loaded yet, show a spinner
+    if (deleteMode && !event && isLoading) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+            <p className="text-center mt-4">Loading event details...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // If in delete mode but there was an error loading the event
+    if (deleteMode && !event && !isLoading) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold mb-4 text-red-600">Error</h3>
+            <p className="mb-4 text-gray-700 dark:text-gray-300">
+              Unable to load event details. The event may have been deleted or you don't have permission to access it.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => navigate('/events')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Back to Events
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Show the modal if showDeleteEventConfirmation is true, regardless of deleteMode
+    if (!showDeleteEventConfirmation) {
+      return null;
+    }
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Delete Event</h3>
+          <p className="mb-4 text-gray-700 dark:text-gray-300">
+            Are you sure you want to delete this event? This action cannot be undone and will remove all related
+            comments, participants, and bookmarks.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={cancelDeleteEvent}
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg"
+              disabled={isDeleting}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteEvent}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Deleting...
+                </>
+              ) : 'Delete Event'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading event details...</p>
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
-  if (error || !event) {
+  if (error && !showDeleteEventConfirmation) {
     return (
-      <div className="error-container">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto mb-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h2 className="text-2xl font-bold mb-4">Error</h2>
-        <p className="mb-6 text-text-light">{error || 'Event not found'}</p>
-        <button onClick={() => navigate('/events')} className="btn btn-primary">
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mt-4" role="alert">
+        <p>{error}</p>
+        <button 
+          onClick={() => navigate('/events')} 
+          className="mt-2 bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg"
+        >
           Back to Events
         </button>
       </div>
     );
   }
 
-  // Default image if none provided
-  const defaultImage = 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1600&q=80';
+  // If in delete mode, show only the confirmation dialog
+  if (deleteMode) {
+    return <DeleteEventModal />;
+  }
 
-  // Calculate if event is full
-  const isFull = event.current_players >= event.max_players;
-  
-  // Check if user is creator
-  const isCreator = user && user.id === event.creator_id;
+  // Add a check for event existence
+  if (!event) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mt-4" role="alert">
+          <p>Event not found or failed to load. Please try again.</p>
+          <button 
+            onClick={() => navigate('/events')} 
+            className="mt-2 bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg"
+          >
+            Back to Events
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="event-detail-page">
       <div className="event-detail-header">
         <div 
           className="event-cover-image"
-          style={{ backgroundImage: `url(${event.image_url || defaultImage})` }}
+          style={{ backgroundImage: `url(${formatImageUrl(event.image_url, defaultImage)})` }}
         ></div>
         
         <div className="event-header-content">
@@ -682,63 +823,66 @@ const EventDetailPage = () => {
           </div>
           
           <div className="event-actions">
-            {isCreator ? (
-              <div className="creator-actions">
-                <button 
-                  onClick={() => navigate(`/events/${id}/edit`)}
-                  className="btn btn-outline"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit Event
-                </button>
-                <button 
-                  onClick={() => navigate(`/events/${id}/delete`)}
-                  className="btn-danger"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Cancel Event
-                </button>
-              </div>
-            ) : participationStatus || isParticipant() ? (
-              <LeaveButton />
-            ) : (
-              <JoinButton />
-            )}
-            
-            <button 
-              onClick={handleBookmark}
-              className={`bookmark-btn ${isBookmarked ? 'active' : ''}`}
-              aria-label={isBookmarked ? 'Remove from bookmarks' : 'Add to bookmarks'}
-              disabled={isBookmarking}
-            >
-              {isBookmarking ? (
+            {/* Event Actions */}
+            <div className="flex flex-wrap items-center gap-2 mt-4">
+              {/* Join/Leave Button */}
+              {user && user.id !== event.creator_id && (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Bookmarking...
-                </>
-              ) : isBookmarked ? (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                  </svg>
-                  Bookmarked
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                  Bookmark
+                  {!participationStatus && <JoinButton />}
+                  {participationStatus && <LeaveButton />}
                 </>
               )}
-            </button>
+              
+              {/* Edit/Delete Buttons for event creator */}
+              {user && user.id === event.creator_id && (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => navigate(`/events/${id}/edit`)}
+                    className="btn-primary py-2 px-4 rounded-md"
+                  >
+                    Edit Event
+                  </button>
+                  <button 
+                    onClick={() => setShowDeleteEventConfirmation(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md"
+                  >
+                    Delete Event
+                  </button>
+                </div>
+              )}
+              
+              {/* Bookmark button */}
+              <button 
+                onClick={handleBookmark}
+                className={`bookmark-btn ${isBookmarked ? 'active' : ''}`}
+                aria-label={isBookmarked ? 'Remove from bookmarks' : 'Add to bookmarks'}
+                disabled={isBookmarking}
+              >
+                {isBookmarking ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Bookmarking...
+                  </>
+                ) : isBookmarked ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                    </svg>
+                    Bookmarked
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    Bookmark
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -824,7 +968,7 @@ const EventDetailPage = () => {
                 <div className="flex items-start gap-3 mb-4">
                   <div className="shrink-0">
                     <img 
-                      src={user.profile_image || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
+                      src={user.profile_image ? formatImageUrl(user.profile_image, defaultImage) : 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
                       alt={user.username} 
                       className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm cursor-pointer"
                       onClick={() => navigateToUserProfile(user.id)}
@@ -945,7 +1089,7 @@ const EventDetailPage = () => {
                 confirmedParticipants.map((participant) => (
                   <div key={participant.id} className="participant">
                     <img 
-                      src={participant.profile_image || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
+                      src={participant.profile_image ? formatImageUrl(participant.profile_image, defaultImage) : 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
                       alt={participant.username} 
                       className="participant-avatar cursor-pointer"
                       onClick={() => navigateToUserProfile(participant.user_id)}
@@ -970,7 +1114,7 @@ const EventDetailPage = () => {
                   {waitingParticipants.map((participant) => (
                     <div key={participant.id} className="participant waiting">
                       <img 
-                        src={participant.profile_image || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
+                        src={participant.profile_image ? formatImageUrl(participant.profile_image, defaultImage) : 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
                         alt={participant.username} 
                         className="participant-avatar cursor-pointer"
                         onClick={() => navigateToUserProfile(participant.user_id)}
@@ -1031,6 +1175,9 @@ const EventDetailPage = () => {
           </div>
         </div>
       )}
+      
+      {/* Delete Event Modal */}
+      <DeleteEventModal />
     </div>
   );
 };

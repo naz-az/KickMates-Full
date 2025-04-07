@@ -272,26 +272,19 @@ const DiscussionsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <LinearGradient
-            colors={['#4F46E5', '#7C3AED']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientText}
-          >
-            <Text style={styles.headerTitle}>Discussions</Text>
-          </LinearGradient>
-          <Text style={styles.headerSubtitle}>Join conversations, share ideas, and connect with others</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Discussions</Text>
+          <Button
+            title="New Discussion"
+            onPress={handleCreateDiscussion}
+            icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
+          />
         </View>
-        <Button
-          title="New Discussion"
-          onPress={handleCreateDiscussion}
-          icon={<Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />}
-        />
+        <Text style={styles.headerSubtitle}>Join conversations, share ideas, and connect with others</Text>
       </View>
       
       {/* Categories */}
@@ -306,10 +299,10 @@ const DiscussionsScreen = () => {
         />
       </View>
       
-      {/* Search */}
+      {/* Search and Sort */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search-outline" size={20} color="#6B7280" style={styles.searchIcon} />
+          <Ionicons name="search-outline" size={20} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search discussions..."
@@ -317,11 +310,11 @@ const DiscussionsScreen = () => {
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
             returnKeyType="search"
+            placeholderTextColor="#9CA3AF"
           />
         </View>
         
         <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Sort by:</Text>
           <TouchableOpacity 
             style={styles.sortButton}
             onPress={() => setSort(sort === 'newest' ? 'popular' : 'newest')}
@@ -381,37 +374,36 @@ const DiscussionsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
+    paddingTop: 20,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  gradientText: {
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginBottom: 4,
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 20,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#6B7280',
+    marginTop: 0,
   },
   categoriesContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -421,68 +413,68 @@ const styles = StyleSheet.create({
   categoryButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginRight: 8,
     borderRadius: 20,
+    marginRight: 8,
     backgroundColor: '#F3F4F6',
   },
   categoryButtonSelected: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#EEF2FF',
   },
   categoryButtonText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#6B7280',
   },
   categoryButtonTextSelected: {
-    color: '#FFFFFF',
+    color: '#4F46E5',
+    fontWeight: '500',
   },
   searchContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    gap: 12,
   },
   searchInputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    height: 44,
   },
   searchIcon: {
     marginRight: 8,
+    color: '#9CA3AF',
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    fontSize: 16,
+    height: 44,
+    fontSize: 15,
     color: '#111827',
+    paddingVertical: 8,
   },
   sortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 12,
-  },
-  sortLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginRight: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   sortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: '#F3F4F6',
+    gap: 4,
   },
   sortButtonText: {
     fontSize: 14,
     color: '#4B5563',
-    marginRight: 4,
+    fontWeight: '500',
   },
   loaderContainer: {
     flex: 1,

@@ -47,6 +47,20 @@ const CreateEventPage = () => {
     }
     
     const file = e.target.files[0];
+    
+    // Validate file type on client side
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Only image files (jpg, jpeg, png, gif, webp) are allowed.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+    
+    // Reset any previous errors
+    setError(null);
+    
     setSelectedImage(file);
     
     // Create preview URL
@@ -98,6 +112,13 @@ const CreateEventPage = () => {
       return;
     }
     
+    // Check description length
+    if (formData.description.length < 10) {
+      setError('Description must be at least 10 characters long');
+      setIsSubmitting(false);
+      return;
+    }
+    
     // Combine date and time for start and end
     const start_datetime = `${formData.start_date}T${formData.start_time || '00:00'}:00`;
     const end_datetime = `${formData.end_date}T${formData.end_time || '23:59'}:00`;
@@ -131,22 +152,63 @@ const CreateEventPage = () => {
           setIsUploading(true);
           await uploadEventImage(eventId, selectedImage);
           setIsUploading(false);
-        } catch (uploadErr) {
+        } catch (uploadErr: any) {
           console.error('Error uploading event image:', uploadErr);
-          // We'll continue even if image upload fails
+          
+          // Check if it's a file type error
+          if (uploadErr.response?.data?.type === 'invalid_file_type') {
+            setError(uploadErr.response.data.message || 'Only image files (jpg, jpeg, png, gif, webp) are allowed.');
+          } else {
+            // Show error but continue anyway - the event was created
+            setError('Event created but image upload failed. You can edit the event to try uploading the image again.');
+          }
+          
+          // Keep the user on the page if there's an image upload error
+          setIsSubmitting(false);
+          return;
         }
       }
       
       navigate(`/events/${eventId}`);
     } catch (err: unknown) {
       console.error('Error creating event:', err);
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Failed to create event. Please try again.';
       
       // Handle axios error specifically if available
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || errorMessage);
+      const axiosError = err as { 
+        response?: { 
+          data?: { 
+            message?: string,
+            errors?: Array<{ msg: string, path: string }>
+          } 
+        } 
+      };
+      
+      if (axiosError.response?.data?.errors) {
+        // Handle validation errors specifically
+        const errors = axiosError.response.data.errors;
+        const errorMessages = errors.map(error => {
+          // Map field names to user-friendly names
+          const fieldMap: Record<string, string> = {
+            title: 'Title',
+            description: 'Description',
+            sport_type: 'Sport Type',
+            location: 'Location',
+            start_date: 'Start Date',
+            end_date: 'End Date',
+            max_players: 'Maximum Players'
+          };
+          
+          const fieldName = fieldMap[error.path] || error.path;
+          return `${fieldName}: ${error.msg}`;
+        });
+        
+        // Join all error messages with line breaks for the alert
+        setError(errorMessages.join('\n'));
+      } else {
+        // Handle generic errors
+        const errorMessage = axiosError.response?.data?.message || (err instanceof Error ? err.message : 'Failed to create event. Please try again.');
+        setError(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -191,11 +253,22 @@ const CreateEventPage = () => {
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         {error && (
           <div className="bg-error/10 text-error p-4 border-l-4 border-error">
-            <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {error}
+              <div>
+                <div className="font-medium">Please fix the following errors:</div>
+                {error.includes('\n') ? (
+                  <ul className="list-disc ml-5 mt-1 space-y-1">
+                    {error.split('\n').map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div>{error}</div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -242,7 +315,9 @@ const CreateEventPage = () => {
               </div>
               
               <div className="form-group">
-                <label htmlFor="description" className="block text-text-dark font-medium mb-2">Description</label>
+                <label htmlFor="description" className="block text-text-dark font-medium mb-2">
+                  Description <span className="text-xs text-gray-500">(minimum 10 characters)</span>
+                </label>
                 <textarea
                   id="description"
                   name="description"
@@ -252,6 +327,12 @@ const CreateEventPage = () => {
                   rows={4}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
                 />
+                <div className="mt-1 text-xs text-gray-500">
+                  {formData.description.length} / 5000 characters
+                  {formData.description.length > 0 && formData.description.length < 10 && (
+                    <span className="text-error"> (At least 10 characters required)</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -452,28 +533,26 @@ const CreateEventPage = () => {
               Cancel
             </button>
             
-            <button
-              type="submit"
-              className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center"
-              disabled={isSubmitting || isUploading}
-            >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create Event
-                </>
-              )}
-            </button>
+            <div className="text-center mt-8">
+              <button
+                type="submit"
+                className={`px-8 py-3 rounded-full font-medium text-white bg-primary hover:bg-primary-dark transition-all shadow-md 
+                  ${isSubmitting || (formData.description.length > 0 && formData.description.length < 10) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                disabled={isSubmitting || (formData.description.length > 0 && formData.description.length < 10)}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Event...
+                  </span>
+                ) : (
+                  'Create Event'
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

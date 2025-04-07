@@ -56,23 +56,19 @@ api.interceptors.request.use(
 // Add response interceptor for debugging
 api.interceptors.response.use(
   (response) => {
-    // console.log(`[API] Response from ${response.config.url}:`, response.status);
+    console.log(`[API] Response from ${response.config.url}:`, response.status);
     return response;
   },
   (error) => {
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       console.error(`[API] Error response from ${error.config?.url}:`, {
         status: error.response.status,
         data: error.response.data,
         headers: error.response.headers,
       });
     } else if (error.request) {
-      // The request was made but no response was received
       console.error('[API] No response received:', error.request);
     } else {
-      // Something happened in setting up the request that triggered an Error
       console.error('[API] Request setup error:', error.message);
     }
     return Promise.reject(error);
@@ -361,27 +357,58 @@ export const getMessages = (conversationId: string | number) => {
   return api.get(`/messages/conversations/${conversationId}/messages`);
 };
 
-export const sendMessage = (conversationId: string | number, content: string, replyToId?: number | null) => {
-  console.log(`[API] Sending message to conversation ${conversationId}:`, { content, replyToId });
-  // Backend expects only 'content' as a string in the body
-  // Only add replyToId if it's provided and valid
-  const payload = { content };
-  if (replyToId && replyToId > 0) {
-    Object.assign(payload, { replyToId });
+// Send a message with optional reply
+export const sendMessage = async (
+  conversationId: string | number,
+  content: string,
+  replyToId?: number
+) => {
+  try {
+    const response = await api.post(`/messages/conversations/${conversationId}/messages`, {
+      content,
+      replyToId
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw error;
   }
-  return api.post(`/messages/conversations/${conversationId}/messages`, payload);
 };
 
-export const likeMessage = (conversationId: string | number, messageId: number) => {
-  return api.post(`/messages/conversations/${conversationId}/messages/${messageId}/like`);
+// Like a message
+export const likeMessage = async (conversationId: string, messageId: string) => {
+  try {
+    const response = await api.post(`/messages/conversations/${conversationId}/messages/${messageId}/like`);
+    return response.data;
+  } catch (error) {
+    console.error('Error liking message:', error);
+    throw error;
+  }
 };
 
-export const unlikeMessage = (conversationId: string | number, messageId: number) => {
-  return api.delete(`/messages/conversations/${conversationId}/messages/${messageId}/like`);
+// Unlike a message
+export const unlikeMessage = async (conversationId: string, messageId: string) => {
+  try {
+    const response = await api.delete(`/messages/conversations/${conversationId}/messages/${messageId}/like`);
+    return response.data;
+  } catch (error) {
+    console.error('Error unliking message:', error);
+    throw error;
+  }
 };
 
-export const deleteMessage = (conversationId: string | number, messageId: number) => {
-  return api.delete(`/messages/conversations/${conversationId}/messages/${messageId}`);
+// Delete a message
+export const deleteMessage = async (
+  conversationId: string | number,
+  messageId: string | number
+) => {
+  try {
+    const response = await api.delete(`/messages/conversations/${conversationId}/messages/${messageId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw error;
+  }
 };
 
 export const startConversation = (userId: number) => {
@@ -411,8 +438,12 @@ export const searchEvents = (query: string) => {
   return api.get('/search/events', { params: { query } });
 };
 
-export const searchUsers = (query: string) => {
-  return api.get('/search/users', { params: { query } });
+export const searchUsers = async (query: string) => {
+  const response = await api.get('/users/search', {
+    params: { query },
+    headers: { Authorization: `Bearer ${await getToken()}` }
+  });
+  return response;
 };
 
 export const searchDiscussions = (query: string) => {
@@ -481,18 +512,29 @@ export const deleteAccount = () => {
 };
 
 // Add this near the top of the file after the api instance creation
-export const getDebugToken = async (): Promise<string | null> => {
+export const getToken = async (): Promise<string | null> => {
   try {
     const token = await AsyncStorage.getItem('token');
-    console.log('[DEBUG] Current token:', token);
     return token;
   } catch (error) {
-    console.error('[DEBUG] Error getting token:', error);
+    console.error('Error getting token:', error);
     return null;
   }
 };
 
 // Debugging function to call from any screen
 export const debugApiToken = async () => {
-  return getDebugToken();
+  return getToken();
+};
+
+export const createConversation = async (data: {
+  participantIds: number[];
+  initialMessage: string;
+}) => {
+  const response = await api.post(
+    '/conversations',
+    data,
+    { headers: { Authorization: `Bearer ${await getToken()}` } }
+  );
+  return response;
 }; 

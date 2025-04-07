@@ -298,21 +298,39 @@ export const deleteEvent = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
-    db.run('BEGIN TRANSACTION');
+    // Start transaction properly using runAsync
+    await runAsync('BEGIN TRANSACTION');
     
-    // Delete related records
-    await runAsync('DELETE FROM comments WHERE event_id = ?', [id]);
-    await runAsync('DELETE FROM event_participants WHERE event_id = ?', [id]);
-    await runAsync('DELETE FROM bookmarks WHERE event_id = ?', [id]);
-    
-    // Delete event
-    await runAsync('DELETE FROM events WHERE id = ?', [id]);
-    
-    db.run('COMMIT');
-    
-    res.status(200).json({ message: 'Event deleted successfully' });
+    try {
+      // Delete notifications related to this event
+      await runAsync('DELETE FROM notifications WHERE related_id = ?', [id]);
+      
+      // Delete comment votes first
+      await runAsync('DELETE FROM comment_votes WHERE comment_id IN (SELECT id FROM comments WHERE event_id = ?)', [id]);
+      
+      // Then delete comments
+      await runAsync('DELETE FROM comments WHERE event_id = ?', [id]);
+      
+      // Delete participants
+      await runAsync('DELETE FROM event_participants WHERE event_id = ?', [id]);
+      
+      // Delete bookmarks
+      await runAsync('DELETE FROM bookmarks WHERE event_id = ?', [id]);
+      
+      // Finally delete the event
+      await runAsync('DELETE FROM events WHERE id = ?', [id]);
+      
+      // Commit transaction
+      await runAsync('COMMIT');
+      
+      res.status(200).json({ message: 'Event deleted successfully' });
+    } catch (error) {
+      // Rollback transaction on error
+      await runAsync('ROLLBACK');
+      console.error('Transaction error:', error);
+      throw error;
+    }
   } catch (error) {
-    db.run('ROLLBACK');
     console.error('Delete event error:', error);
     res.status(500).json({ message: 'Server error deleting event' });
   }

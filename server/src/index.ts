@@ -11,6 +11,7 @@ import discussionRoutes from './routes/discussionRoutes';
 import path from 'path';
 import http from 'http';
 import { socketService } from './utils/socketService';
+import multer from 'multer';
 
 // Load environment variables
 dotenv.config();
@@ -29,7 +30,7 @@ socketService.initialize(server);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 app.use(morgan('dev'));
 
 // API Routes
@@ -49,7 +50,28 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Error handling middleware
+// Multer error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    // A Multer error occurred when uploading
+    console.error('Multer error:', err);
+    res.status(400).json({ 
+      message: `File upload error: ${err.message}` 
+    });
+  } else if (err && err.message && err.message.includes('Only image files are allowed')) {
+    // Our custom file filter error
+    console.error('File type error:', err);
+    res.status(400).json({ 
+      message: err.message,
+      type: 'invalid_file_type'
+    });
+  } else {
+    // Forward to the general error handler
+    next(err);
+  }
+});
+
+// General error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });

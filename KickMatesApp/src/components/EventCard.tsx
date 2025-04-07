@@ -8,7 +8,8 @@ import {
   ImageBackground,
   Animated,
   Platform,
-  Dimensions
+  Dimensions,
+  Easing
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +19,7 @@ import { formatDistance } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import { navigateToUserProfile } from '../utils/navigation';
+import { BlurView } from 'expo-blur';
 
 type EventCardNavigationProp = NativeStackNavigationProp<EventsStackParamList, 'EventDetail'>;
 
@@ -62,27 +64,53 @@ const EventCard: React.FC<EventCardProps> = ({
   const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user: currentUser } = useContext(AuthContext);
   const animatedScale = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
   
-  // Staggered animation for list items
+  // Enhanced staggered animation for list items
   React.useEffect(() => {
-    Animated.sequence([
-      Animated.delay(index * 100),
-      Animated.spring(animatedScale, {
+    Animated.parallel([
+      Animated.sequence([
+        Animated.delay(index * 100),
+        Animated.spring(animatedScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 40,
+          useNativeDriver: true
+        })
+      ]),
+      Animated.timing(fadeAnim, {
         toValue: 1,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true
+        duration: 500,
+        delay: index * 100,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic)
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        delay: index * 100,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic)
       })
     ]).start();
   }, []);
 
   const handlePressIn = () => {
-    Animated.spring(animatedScale, {
-      toValue: 0.97,
-      friction: 8,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
+    Animated.sequence([
+      Animated.spring(animatedScale, {
+        toValue: 0.97,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(animatedScale, {
+        toValue: 1,
+        friction: 3,
+        tension: 40,
+        useNativeDriver: true,
+      })
+    ]).start();
   };
   
   const handlePressOut = () => {
@@ -234,10 +262,13 @@ const EventCard: React.FC<EventCardProps> = ({
     }
   };
   
-  // Scale in animation style
+  // Enhanced animation style
   const animatedStyle = {
-    transform: [{ scale: animatedScale }],
-    opacity: animatedScale,
+    transform: [
+      { scale: animatedScale },
+      { translateY: slideAnim }
+    ],
+    opacity: fadeAnim,
   };
   
   if (compact) {
@@ -250,35 +281,43 @@ const EventCard: React.FC<EventCardProps> = ({
           onPressOut={handlePressOut}
           activeOpacity={0.9}
         >
-          <View style={styles.compactImageContainer}>
-            <Image 
-              source={{ uri: event.image_url || getSportImageUrl() }} 
-              style={styles.compactImage} 
-            />
+          <ImageBackground 
+            source={{ uri: event.image_url || getSportImageUrl() }} 
+            style={styles.compactImageContainer}
+            imageStyle={styles.compactImage}
+          >
             <LinearGradient 
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
+              colors={['transparent', 'rgba(0,0,0,0.8)']}
               style={styles.compactImageOverlay}
             />
             
             {showBookmarkButton && (
-              <TouchableOpacity 
-                style={styles.bookmarkButton}
-                onPress={onBookmarkPress}
-                hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
-                activeOpacity={0.7}
-              >
-                <Ionicons 
-                  name={event.bookmarked_by_user ? "bookmark" : "bookmark-outline"} 
-                  size={22} 
-                  color="#FFFFFF" 
-                />
-              </TouchableOpacity>
+              <BlurView intensity={80} style={styles.bookmarkButton}>
+                <TouchableOpacity 
+                  onPress={onBookmarkPress}
+                  hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name={event.bookmarked_by_user ? "bookmark" : "bookmark-outline"} 
+                    size={22} 
+                    color="#FFFFFF" 
+                  />
+                </TouchableOpacity>
+              </BlurView>
             )}
-          </View>
+          </ImageBackground>
           <View style={styles.compactContent}>
             <View style={styles.compactSportBadge}>
-              {renderSportIcon()}
-              <Text style={styles.compactSportText}>{event.sport_type}</Text>
+              <LinearGradient
+                colors={getSportGradient()}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.compactSportGradient}
+              >
+                {renderSportIcon()}
+                <Text style={styles.compactSportText}>{event.sport_type}</Text>
+              </LinearGradient>
             </View>
             <Text style={styles.compactTitle} numberOfLines={1}>{event.title}</Text>
             <View style={styles.compactDetails}>
@@ -304,90 +343,114 @@ const EventCard: React.FC<EventCardProps> = ({
         onPressOut={handlePressOut}
         activeOpacity={0.95}
       >
-        <ImageBackground
-          source={{ uri: event.image_url || getSportImageUrl() }}
-          style={styles.image}
-          imageStyle={styles.imageStyle}
+        <LinearGradient
+          colors={['rgb(255, 255, 255)', 'rgb(248, 250, 252)', 'rgb(226, 232, 240)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: Math.cos(1 * Math.PI / 180), y: Math.sin(1 * Math.PI / 180) }}
+          style={[styles.cardGradient, { 
+            borderWidth: 1,
+            borderColor: 'rgba(226, 232, 240, 0.6)'
+          }]}
         >
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
-            style={styles.overlay}
+          <ImageBackground
+            source={{ uri: event.image_url || getSportImageUrl() }}
+            style={styles.image}
+            imageStyle={styles.imageStyle}
           >
-            <View style={styles.topOverlayContent}>
-              <View style={styles.sportBadge}>
-                {renderSportIcon()}
-                <Text style={styles.sportText}>{event.sport_type}</Text>
-              </View>
-              
-              {showBookmarkButton && (
-                <TouchableOpacity 
-                  style={styles.bookmarkButtonFull}
-                  onPress={onBookmarkPress}
-                  hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons 
-                    name={event.bookmarked_by_user ? "bookmark" : "bookmark-outline"} 
-                    size={24} 
-                    color="#FFFFFF" 
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.bottomOverlayContent}>
-              <Text style={styles.title}>{event.title}</Text>
-              
-              <View style={styles.eventInfo}>
-                <View style={styles.detailRow}>
-                  <Ionicons name="location-outline" size={14} color="#E2E8F0" />
-                  <Text style={styles.detailText}>{event.location}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Ionicons name="calendar-outline" size={14} color="#E2E8F0" />
-                  <Text style={styles.detailText}>{formatDate(event.start_date)}</Text>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-        
-        <View style={styles.content}>
-          <View style={styles.playersContainer}>
             <LinearGradient
-              colors={getSportGradient()}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.playersGradient}
+              colors={['transparent', 'rgba(0,0,0,0.8)']}
+              style={styles.overlay}
             >
-              <Ionicons name="people" size={16} color="#FFFFFF" />
-              <Text style={styles.playersText}>
-                {event.current_players || 0} / {event.max_players}
-              </Text>
+              <View style={styles.topOverlayContent}>
+                {showBookmarkButton && (
+                  <BlurView intensity={80} style={styles.bookmarkButtonFull}>
+                    <TouchableOpacity 
+                      onPress={onBookmarkPress}
+                      hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons 
+                        name={event.bookmarked_by_user ? "bookmark" : "bookmark-outline"} 
+                        size={24} 
+                        color="#FFFFFF" 
+                      />
+                    </TouchableOpacity>
+                  </BlurView>
+                )}
+              </View>
+              <View style={styles.bottomOverlayContent}>
+                <Text style={styles.title}>{event.title}</Text>
+                
+                <View style={styles.eventInfo}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="location-outline" size={14} color="#E2E8F0" />
+                    <Text style={styles.detailText}>{event.location}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="calendar-outline" size={14} color="#E2E8F0" />
+                    <Text style={styles.detailText}>{formatDate(event.start_date)}</Text>
+                  </View>
+                </View>
+              </View>
             </LinearGradient>
-          </View>
+          </ImageBackground>
           
-          {event.creator && (
-            <TouchableOpacity style={styles.creatorInfo} onPress={handleCreatorPress}>
-              {event.creator.profile_image ? (
-                <Image source={{ uri: event.creator.profile_image }} style={styles.creatorImage} />
-              ) : (
-                <LinearGradient
-                  colors={['#4361EE', '#3A0CA3']}
-                  style={styles.creatorImagePlaceholder}
-                >
-                  <Text style={styles.creatorImagePlaceholderText}>
-                    {event.creator.username && event.creator.username.length > 0 
-                      ? event.creator.username[0].toUpperCase() 
-                      : '?'}
-                  </Text>
-                </LinearGradient>
-              )}
-              <Text style={styles.creatorName}>
-                by {event.creator && event.creator.username ? event.creator.username : 'Unknown'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          <View style={styles.content}>
+            <View style={styles.contentRow}>
+              <View style={styles.tagContainer}>
+                <View style={styles.iconWrapper}>
+                  <LinearGradient
+                    colors={['#F1F5F9', '#E2E8F0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.iconGradient}
+                  >
+                    <Ionicons name="people" size={16} color="#64748B" />
+                  </LinearGradient>
+                </View>
+                <Text style={styles.tagText}>
+                  {event.current_players || 0} / {event.max_players}
+                </Text>
+              </View>
+
+              <View style={styles.tagContainer}>
+                <View style={styles.iconWrapper}>
+                  <LinearGradient
+                    colors={['#F1F5F9', '#E2E8F0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.iconGradient}
+                  >
+                    {renderSportIcon()}
+                  </LinearGradient>
+                </View>
+                <Text style={styles.tagText}>{event.sport_type}</Text>
+              </View>
+            </View>
+            
+            {event.creator && (
+              <TouchableOpacity style={styles.creatorInfo} onPress={handleCreatorPress}>
+                {event.creator.profile_image ? (
+                  <Image source={{ uri: event.creator.profile_image }} style={styles.creatorImage} />
+                ) : (
+                  <LinearGradient
+                    colors={getSportGradient()}
+                    style={styles.creatorImagePlaceholder}
+                  >
+                    <Text style={styles.creatorImagePlaceholderText}>
+                      {event.creator.username && event.creator.username.length > 0 
+                        ? event.creator.username[0].toUpperCase() 
+                        : '?'}
+                    </Text>
+                  </LinearGradient>
+                )}
+                <Text style={styles.creatorName}>
+                  by {event.creator && event.creator.username ? event.creator.username : 'Unknown'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -395,144 +458,163 @@ const EventCard: React.FC<EventCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(0,0,0,0.2)',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
+        shadowColor: 'rgba(71, 85, 105, 0.15)',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
       },
       android: {
-        elevation: 6,
+        elevation: 12,
       }
     }),
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  cardGradient: {
+    borderRadius: 20,
   },
   image: {
-    height: 200,
+    height: 220,
     width: '100%',
   },
   imageStyle: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 20,
   },
   topOverlayContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   bottomOverlayContent: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sportBadge: {
+    borderRadius: 30,
+    overflow: 'hidden',
+  },
+  sportGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 30,
-    alignSelf: 'flex-start',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      }
-    }),
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   sportText: {
-    color: '#4361EE',
+    color: '#FFFFFF',
     fontWeight: '700',
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginBottom: 12,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   eventInfo: {
-    marginBottom: 4,
+    marginBottom: 6,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   detailText: {
     color: '#E2E8F0',
-    marginLeft: 6,
-    fontSize: 14,
+    marginLeft: 8,
+    fontSize: 15,
     fontWeight: '500',
   },
   content: {
     padding: 16,
+  },
+  contentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  playersContainer: {
-    alignSelf: 'flex-start',
-  },
-  playersGradient: {
+  tagContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      }
+    }),
   },
-  playersText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    marginLeft: 6,
+  iconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginRight: 8,
+  },
+  iconGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tagText: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    paddingRight: 8,
+    textTransform: 'capitalize',
   },
   creatorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   creatorImage: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   creatorImagePlaceholder: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   creatorImagePlaceholderText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
   },
   creatorName: {
-    marginLeft: 8,
+    marginLeft: 10,
     color: '#64748B',
-    fontWeight: '500',
-    fontSize: 14,
+    fontWeight: '600',
+    fontSize: 15,
   },
   compactContainer: {
-    width: 200,
+    width: 220,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
@@ -542,21 +624,21 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       }
     }),
-    marginBottom: 8,
+    marginBottom: 12,
   },
   compactImageContainer: {
-    height: 120,
+    height: 140,
     width: '100%',
     position: 'relative',
   },
   compactImage: {
     height: '100%',
     width: '100%',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   compactImageOverlay: {
     position: 'absolute',
@@ -566,46 +648,49 @@ const styles = StyleSheet.create({
     height: '50%',
   },
   compactContent: {
-    padding: 12,
+    padding: 16,
   },
   compactSportBadge: {
+    marginBottom: 8,
+  },
+  compactSportGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 30,
   },
   compactSportText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4361EE',
-    marginLeft: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
   },
   compactTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#1E293B',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   compactDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   compactDate: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   bookmarkButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    top: 12,
+    right: 12,
     borderRadius: 20,
     padding: 10,
     zIndex: 10,
   },
   bookmarkButtonFull: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 20,
     padding: 10,
     zIndex: 10,

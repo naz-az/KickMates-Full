@@ -37,6 +37,7 @@ import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import ReportProblemScreen from '../screens/ReportProblemScreen';
 import ContactUsScreen from '../screens/ContactUsScreen';
+import CreateMessageScreen from '../screens/CreateMessageScreen';
 
 // Define the parameter types for each navigator
 export type RootStackParamList = {
@@ -101,8 +102,16 @@ export type ProfileStackParamList = {
 };
 
 export type MessagesStackParamList = {
-  MessagesList: undefined;
-  Conversation: { id: string | number };
+  Messages: undefined;
+  Conversation: { 
+    conversationId: number;
+    recipientId: number;
+    recipientName: string;
+    recipientImage?: string;
+    eventId?: number;
+    eventTitle?: string;
+  };
+  CreateMessage: undefined;
 };
 
 // Create navigators
@@ -172,9 +181,21 @@ const ProfileNavigator = () => {
 // Messages Stack Navigator
 const MessagesNavigator = () => {
   return (
-    <MessagesStack.Navigator>
-      <MessagesStack.Screen name="MessagesList" component={MessagesScreen} options={{ title: 'Messages' }} />
-      <MessagesStack.Screen name="Conversation" component={ConversationScreen} options={{ title: 'Conversation' }} />
+    <MessagesStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <MessagesStack.Screen name="Messages" component={MessagesScreen} />
+      <MessagesStack.Screen name="Conversation" component={ConversationScreen} />
+      <MessagesStack.Screen 
+        name="CreateMessage" 
+        component={CreateMessageScreen}
+        options={{
+          headerShown: true,
+          headerTitle: 'New Message',
+        }}
+      />
     </MessagesStack.Navigator>
   );
 };

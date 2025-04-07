@@ -110,11 +110,11 @@ const ProfileScreen = () => {
         setUserBookmarks([]);
       }
       
-      console.log('[DEBUG] Profile data loaded:', {
-        profileDataLoaded: !!responses[0].data.user,
-        userEventsCount: responses[1].data.events?.length || 0,
-        userBookmarksCount: responses[2].data.bookmarkedEvents?.length || 0
-      });
+      // console.log('[DEBUG] Profile data loaded:', {
+      //   profileDataLoaded: !!responses[0].data.user,
+      //   userEventsCount: responses[1].data.events?.length || 0,
+      //   userBookmarksCount: responses[2].data.bookmarkedEvents?.length || 0
+      // });
     } catch (error) {
       console.error('Error loading profile data:', error);
       Alert.alert('Error', 'Failed to load profile data. Please try again.');

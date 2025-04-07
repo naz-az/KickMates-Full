@@ -459,3 +459,28 @@ export const uploadProfileImage = async (req: Request, res: Response): Promise<v
     res.status(500).json({ message: 'Server error uploading profile image' });
   }
 };
+
+// Search users
+export const searchUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { query } = req.query;
+
+    if (!query || typeof query !== 'string') {
+      res.status(400).json({ message: 'Search query is required' });
+      return;
+    }
+
+    const users = await allAsync(
+      `SELECT id, username, full_name, bio, profile_image, created_at 
+       FROM users 
+       WHERE username LIKE ? OR full_name LIKE ?
+       ORDER BY created_at DESC`,
+      [`%${query}%`, `%${query}%`]
+    );
+
+    res.status(200).json({ users });
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ message: 'Server error searching users' });
+  }
+};

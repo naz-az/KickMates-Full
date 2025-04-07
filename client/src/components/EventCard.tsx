@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { formatImageUrl } from '../utils/imageUtils';
 
 interface EventProps {
   event: {
@@ -43,7 +44,7 @@ const EventCard = ({ event }: EventProps) => {
     <Link to={`/events/${event.id}`} className="event-card">
       <div 
         className="event-image"
-        style={{ backgroundImage: `url(${event.image_url || defaultImage})` }}
+        style={{ backgroundImage: `url(${formatImageUrl(event.image_url, defaultImage)})` }}
       ></div>
       
       <div className="event-content">

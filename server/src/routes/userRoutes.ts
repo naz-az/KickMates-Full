@@ -1,5 +1,5 @@
 import { Router, RequestHandler } from 'express';
-import { register, login, getProfile, updateProfile, getUserEvents, getUserBookmarks, getAllUsers, getUserById, getUserEventsById, changePassword, deleteAccount, uploadProfileImage } from '../controllers/userController';
+import { register, login, getProfile, updateProfile, getUserEvents, getUserBookmarks, getAllUsers, getUserById, getUserEventsById, changePassword, deleteAccount, uploadProfileImage, searchUsers } from '../controllers/userController';
 import { authenticate } from '../middlewares/auth';
 import { upload } from '../middlewares/upload';
 import { 
@@ -16,6 +16,7 @@ const router = Router();
 router.post('/register', validateRegister, register as RequestHandler);
 router.post('/login', validateLogin, login as RequestHandler);
 router.get('/all', getAllUsers as RequestHandler);
+router.get('/search', searchUsers as RequestHandler);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile as RequestHandler);

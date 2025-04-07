@@ -5,7 +5,9 @@ import {
   sendMessage, 
   createConversation,
   getConversation,
-  deleteMessage
+  deleteMessage,
+  likeMessage,
+  unlikeMessage
 } from '../controllers/messageController';
 import { authenticate } from '../middlewares/auth';
 import { checkConversationParticipation, authorizeAction } from '../utils/authUtils';
@@ -56,6 +58,20 @@ router.delete(
   checkConversationParticipation('conversationId'),
   authorizeAction('delete', 'message', 'messageId'),
   deleteMessage as RequestHandler
+);
+
+// Like a message
+router.post(
+  '/conversations/:conversationId/messages/:messageId/like',
+  checkConversationParticipation('conversationId'),
+  likeMessage as RequestHandler
+);
+
+// Unlike a message
+router.delete(
+  '/conversations/:conversationId/messages/:messageId/like',
+  checkConversationParticipation('conversationId'),
+  unlikeMessage as RequestHandler
 );
 
 export default router; 
