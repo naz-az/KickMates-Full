@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getConversations, getMessages, sendMessage, deleteMessage, getAllUsers, createConversation } from '../services/api';
+import { getConversations, getMessages, sendMessage, deleteMessage, getAllUsers, createConversation, likeMessage, unlikeMessage } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { socketService, useSocket } from '../services/socketService';
 import { formatImageUrl } from '../utils/imageUtils';
@@ -373,11 +373,40 @@ const MessagesPage = () => {
 
   // Like a message
   const handleLikeMessage = (messageId: number) => {
+    // Find the message to determine if it's currently liked or not
+    const message = messages.find(msg => msg.id === messageId);
+    
+    if (!message || !activeConversation) return;
+    
+    // Optimistically update UI
     setMessages(prev => prev.map(msg => 
       msg.id === messageId ? { ...msg, isLiked: !msg.isLiked } : msg
     ));
+    
+    // Call the appropriate API based on current like status
+    if (message.isLiked) {
+      // If already liked, unlike it
+      unlikeMessage(activeConversation, messageId)
+        .catch(err => {
+          console.error('Error unliking message:', err);
+          // Revert UI change on error
+          setMessages(prev => prev.map(msg => 
+            msg.id === messageId ? { ...msg, isLiked: true } : msg
+          ));
+        });
+    } else {
+      // If not liked, like it
+      likeMessage(activeConversation, messageId)
+        .catch(err => {
+          console.error('Error liking message:', err);
+          // Revert UI change on error
+          setMessages(prev => prev.map(msg => 
+            msg.id === messageId ? { ...msg, isLiked: false } : msg
+          ));
+        });
+    }
+    
     setShowContextMenu(false);
-    // TODO: Send like to API
   };
 
   // Delete a message

@@ -30,4 +30,6 @@ router.post('/:id/comments', auth_1.authenticate, validator_1.validateIdParam, v
 router.delete('/:id/comments/:commentId', auth_1.authenticate, validator_1.validateIdParam, (0, authUtils_1.authorizeAction)('delete', 'comment', 'commentId'), eventController_1.deleteComment);
 // Vote on comment
 router.post('/:id/comments/:commentId/vote', auth_1.authenticate, validator_1.validateIdParam, validator_1.validateVote, eventController_1.voteComment);
+// Add a debug log for the route
+console.log('Event comment vote route registered: POST /:id/comments/:commentId/vote');
 exports.default = router;

@@ -367,14 +367,37 @@ const voteComment = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(400).json({ message: 'Vote type must be "up" or "down"' });
             return;
         }
-        // Check if comment exists and belongs to the discussion
-        const comment = yield (0, db_1.getAsync)('SELECT id, thumbs_up, thumbs_down FROM comments WHERE id = ? AND discussion_id = ?', [commentId, id]);
+        // Convert params to ensure proper type comparison
+        const discussionId = parseInt(id, 10);
+        const cmtId = parseInt(commentId, 10);
+        // First check if comment exists at all without filtering by discussion_id
+        const comment = yield (0, db_1.getAsync)('SELECT id, discussion_id, event_id, thumbs_up, thumbs_down FROM comments WHERE id = ?', [cmtId]);
         if (!comment) {
             res.status(404).json({ message: 'Comment not found' });
             return;
         }
+        // Check if comment belongs to an event instead of a discussion
+        if (comment.event_id !== null && comment.discussion_id === null) {
+            res.status(404).json({
+                message: 'Comment belongs to an event, not a discussion',
+                correctType: 'event',
+                correctId: comment.event_id,
+                detail: 'This comment is associated with an event, not a discussion.'
+            });
+            return;
+        }
+        // Check if comment belongs to the specified discussion
+        if (comment.discussion_id !== discussionId) {
+            res.status(404).json({
+                message: 'Comment not found for this discussion',
+                correctType: 'discussion',
+                correctId: comment.discussion_id,
+                detail: 'The comment exists but belongs to a different discussion.'
+            });
+            return;
+        }
         // Check if user has already voted on this comment
-        const existingVote = yield (0, db_1.getAsync)('SELECT vote_type FROM comment_votes WHERE comment_id = ? AND user_id = ?', [commentId, userId]);
+        const existingVote = yield (0, db_1.getAsync)('SELECT vote_type FROM comment_votes WHERE comment_id = ? AND user_id = ?', [cmtId, userId]);
         // Start a transaction
         yield (0, db_1.runAsync)('BEGIN TRANSACTION');
         try {
@@ -384,7 +407,7 @@ const voteComment = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 // User is changing their vote
                 if (existingVote.vote_type !== voteType) {
                     // Update the vote type
-                    yield (0, db_1.runAsync)('UPDATE comment_votes SET vote_type = ? WHERE comment_id = ? AND user_id = ?', [voteType, commentId, userId]);
+                    yield (0, db_1.runAsync)('UPDATE comment_votes SET vote_type = ? WHERE comment_id = ? AND user_id = ?', [voteType, cmtId, userId]);
                     // Adjust the counters
                     if (voteType === 'up') {
                         newThumbsUp += 1;
@@ -397,7 +420,7 @@ const voteComment = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 }
                 else {
                     // User is removing their vote
-                    yield (0, db_1.runAsync)('DELETE FROM comment_votes WHERE comment_id = ? AND user_id = ?', [commentId, userId]);
+                    yield (0, db_1.runAsync)('DELETE FROM comment_votes WHERE comment_id = ? AND user_id = ?', [cmtId, userId]);
                     // Adjust the counters
                     if (voteType === 'up') {
                         newThumbsUp -= 1;
@@ -409,7 +432,7 @@ const voteComment = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             }
             else {
                 // User is adding a new vote
-                yield (0, db_1.runAsync)('INSERT INTO comment_votes (comment_id, user_id, vote_type) VALUES (?, ?, ?)', [commentId, userId, voteType]);
+                yield (0, db_1.runAsync)('INSERT INTO comment_votes (comment_id, user_id, vote_type) VALUES (?, ?, ?)', [cmtId, userId, voteType]);
                 // Adjust the counters
                 if (voteType === 'up') {
                     newThumbsUp += 1;
@@ -419,18 +442,20 @@ const voteComment = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 }
             }
             // Update the comment with new vote counts
-            yield (0, db_1.runAsync)('UPDATE comments SET thumbs_up = ?, thumbs_down = ? WHERE id = ?', [newThumbsUp, newThumbsDown, commentId]);
+            yield (0, db_1.runAsync)('UPDATE comments SET thumbs_up = ?, thumbs_down = ? WHERE id = ?', [newThumbsUp, newThumbsDown, cmtId]);
             // Commit the transaction
             yield (0, db_1.runAsync)('COMMIT');
             // Return the updated comment with the user's vote
-            res.status(200).json({
+            const responseData = {
                 message: 'Vote recorded',
                 comment: {
+                    id: comment.id,
                     thumbs_up: newThumbsUp,
                     thumbs_down: newThumbsDown,
-                    user_vote: (existingVote === null || existingVote === void 0 ? void 0 : existingVote.vote_type) === voteType ? null : voteType
+                    user_vote: existingVote && existingVote.vote_type === voteType ? null : voteType
                 }
-            });
+            };
+            res.status(200).json(responseData);
         }
         catch (error) {
             // Rollback on error
@@ -439,7 +464,6 @@ const voteComment = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         }
     }
     catch (error) {
-        console.error('Vote comment error:', error);
         res.status(500).json({ message: 'Server error voting on comment' });
     }
 });

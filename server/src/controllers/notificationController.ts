@@ -9,6 +9,8 @@ export interface Notification {
   type: 'event_invite' | 'event_update' | 'event_reminder' | 'comment' | 'join_request' | 'join_accepted' | 'system';
   content: string;
   related_id?: number;
+  sender_id?: number;
+  sender_image?: string;
   is_read: boolean;
   created_at: string;
 }
@@ -21,10 +23,16 @@ interface CountResult {
 export const getUserNotifications = (req: Request, res: Response) => {
   const userId = req.user.id;
   
+  console.log(`Fetching notifications for user ID: ${userId}`);
+  
   db.all(
-    `SELECT * FROM notifications 
-    WHERE user_id = ? 
-    ORDER BY created_at DESC`,
+    `SELECT n.*, 
+            u.profile_image as current_sender_image,
+            u.username as sender_username
+     FROM notifications n
+     LEFT JOIN users u ON n.sender_id = u.id
+     WHERE n.user_id = ? 
+     ORDER BY n.created_at DESC`,
     [userId],
     (err, notifications) => {
       if (err) {
@@ -32,7 +40,73 @@ export const getUserNotifications = (req: Request, res: Response) => {
         return res.status(500).json({ error: 'Failed to retrieve notifications' });
       }
       
-      res.json(notifications);
+      console.log(`Found ${notifications.length} notifications for user ${userId}`);
+      
+      // Log notifications with and without sender information
+      const withSender = notifications.filter((n: any) => n.sender_id);
+      const withoutSender = notifications.filter((n: any) => !n.sender_id);
+      
+      console.log(`Notifications with sender_id: ${withSender.length}, without sender_id: ${withoutSender.length}`);
+      
+      if (withSender.length > 0) {
+        const withImage = withSender.filter((n: any) => n.current_sender_image || n.sender_image);
+        const withoutImage = withSender.filter((n: any) => !n.current_sender_image && !n.sender_image);
+        
+        console.log(`Notifications with sender_id and images: ${withImage.length}, without images: ${withoutImage.length}`);
+        
+        if (withImage.length > 0) {
+          const sample = withImage[0] as {
+            id: number; 
+            sender_id: number; 
+            sender_image?: string; 
+            current_sender_image?: string;
+            sender_username?: string;
+          };
+          
+          console.log('Sample notification with sender and image:', {
+            id: sample.id,
+            sender_id: sample.sender_id,
+            original_sender_image: sample.sender_image,
+            current_sender_image: sample.current_sender_image,
+            sender_username: sample.sender_username
+          });
+        }
+        
+        if (withoutImage.length > 0) {
+          const sample = withoutImage[0] as {
+            id: number; 
+            sender_id: number;
+            sender_username?: string;
+          };
+          
+          console.log('Sample notification with sender but no image:', {
+            id: sample.id,
+            sender_id: sample.sender_id,
+            sender_username: sample.sender_username
+          });
+        }
+      }
+      
+      // Use the current profile image if available, otherwise fall back to stored sender_image
+      const processedNotifications = notifications.map((notification: any) => {
+        const originalSenderImage = notification.sender_image;
+        const currentSenderImage = notification.current_sender_image;
+        const finalImage = currentSenderImage || originalSenderImage;
+        
+        if (originalSenderImage !== finalImage && (originalSenderImage || currentSenderImage)) {
+          console.log(`Notification #${notification.id} image updated:`, {
+            from: originalSenderImage,
+            to: finalImage
+          });
+        }
+        
+        return {
+          ...notification,
+          sender_image: finalImage
+        };
+      });
+      
+      res.json(processedNotifications);
     }
   );
 };

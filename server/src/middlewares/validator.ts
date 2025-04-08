@@ -297,6 +297,16 @@ export const idParamValidationRules = [
         throw new Error('ID must be a positive integer');
       }
       return true;
+    }),
+  param('commentId')
+    .optional()
+    .custom((value) => {
+      // Allow both string numeric IDs and integer IDs
+      const id = parseInt(value, 10);
+      if (isNaN(id) || id < 1) {
+        throw new Error('Comment ID must be a positive integer');
+      }
+      return true;
     })
 ];
 

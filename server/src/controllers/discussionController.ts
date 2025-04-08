@@ -458,10 +458,14 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
-    // Check if comment exists and belongs to the discussion
+    // Convert params to ensure proper type comparison
+    const discussionId = parseInt(id, 10);
+    const cmtId = parseInt(commentId, 10);
+    
+    // First check if comment exists at all without filtering by discussion_id
     const comment = await getAsync(
-      'SELECT id, thumbs_up, thumbs_down FROM comments WHERE id = ? AND discussion_id = ?',
-      [commentId, id]
+      'SELECT id, discussion_id, event_id, thumbs_up, thumbs_down FROM comments WHERE id = ?',
+      [cmtId]
     );
     
     if (!comment) {
@@ -469,10 +473,32 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
+    // Check if comment belongs to an event instead of a discussion
+    if (comment.event_id !== null && comment.discussion_id === null) {
+      res.status(404).json({ 
+        message: 'Comment belongs to an event, not a discussion',
+        correctType: 'event',
+        correctId: comment.event_id,
+        detail: 'This comment is associated with an event, not a discussion.'
+      });
+      return;
+    }
+    
+    // Check if comment belongs to the specified discussion
+    if (comment.discussion_id !== discussionId) {
+      res.status(404).json({ 
+        message: 'Comment not found for this discussion',
+        correctType: 'discussion',
+        correctId: comment.discussion_id,
+        detail: 'The comment exists but belongs to a different discussion.'
+      });
+      return;
+    }
+    
     // Check if user has already voted on this comment
     const existingVote = await getAsync(
       'SELECT vote_type FROM comment_votes WHERE comment_id = ? AND user_id = ?',
-      [commentId, userId]
+      [cmtId, userId]
     );
     
     // Start a transaction
@@ -488,7 +514,7 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
           // Update the vote type
           await runAsync(
             'UPDATE comment_votes SET vote_type = ? WHERE comment_id = ? AND user_id = ?',
-            [voteType, commentId, userId]
+            [voteType, cmtId, userId]
           );
           
           // Adjust the counters
@@ -503,7 +529,7 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
           // User is removing their vote
           await runAsync(
             'DELETE FROM comment_votes WHERE comment_id = ? AND user_id = ?',
-            [commentId, userId]
+            [cmtId, userId]
           );
           
           // Adjust the counters
@@ -517,7 +543,7 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
         // User is adding a new vote
         await runAsync(
           'INSERT INTO comment_votes (comment_id, user_id, vote_type) VALUES (?, ?, ?)',
-          [commentId, userId, voteType]
+          [cmtId, userId, voteType]
         );
         
         // Adjust the counters
@@ -531,28 +557,30 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
       // Update the comment with new vote counts
       await runAsync(
         'UPDATE comments SET thumbs_up = ?, thumbs_down = ? WHERE id = ?',
-        [newThumbsUp, newThumbsDown, commentId]
+        [newThumbsUp, newThumbsDown, cmtId]
       );
       
       // Commit the transaction
       await runAsync('COMMIT');
       
       // Return the updated comment with the user's vote
-      res.status(200).json({
+      const responseData = {
         message: 'Vote recorded',
         comment: {
+          id: comment.id,
           thumbs_up: newThumbsUp,
           thumbs_down: newThumbsDown,
-          user_vote: existingVote?.vote_type === voteType ? null : voteType
+          user_vote: existingVote && existingVote.vote_type === voteType ? null : voteType
         }
-      });
+      };
+      
+      res.status(200).json(responseData);
     } catch (error) {
       // Rollback on error
       await runAsync('ROLLBACK');
       throw error;
     }
   } catch (error) {
-    console.error('Vote comment error:', error);
     res.status(500).json({ message: 'Server error voting on comment' });
   }
 };

@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { voteComment, addComment } from '../services/api';
+import { voteComment, addComment, voteDiscussionComment, verifyCommentEntity } from '../services/api';
 import { formatImageUrl } from '../utils/imageUtils';
 
 interface CommentType {
@@ -16,6 +17,8 @@ interface CommentType {
   thumbs_down: number;
   user_vote?: 'up' | 'down' | null;
   replies?: CommentType[];
+  discussion_id?: number | null;
+  event_id?: number | null;
 }
 
 interface CommentProps {
@@ -97,10 +100,94 @@ const Comment = ({
     
     try {
       setIsVoting(true);
-      const response = await voteComment(eventId, comment.id.toString(), voteType);
-      onVote(comment.id, voteType, response.data.comment);
-    } catch (err) {
-      console.error('Error voting on comment:', err);
+      
+      // Get the proper ID and type based on comment properties
+      const commentId = comment.id.toString();
+      
+      // If we don't have entity information, try to fetch it first
+      if (!comment.discussion_id && !comment.event_id) {
+        try {
+          const entityInfo = await verifyCommentEntity(commentId);
+          
+          // Update comment with the correct entity information
+          if (entityInfo.entityType === 'discussion') {
+            comment.discussion_id = entityInfo.entityId;
+            comment.event_id = null;
+          } else if (entityInfo.entityType === 'event') {
+            comment.event_id = entityInfo.entityId;
+            comment.discussion_id = null;
+          }
+        } catch (_error) {
+          // Continue with the current information if verification fails
+        }
+      }
+      try {
+        let response;
+        
+        // Determine which API to call based on the comment's properties
+        if (comment.discussion_id) {
+          // If the comment has a discussion_id, use the discussion API
+          const discussionId = comment.discussion_id.toString();
+          response = await voteDiscussionComment(discussionId, commentId, voteType);
+          onVote(comment.id, voteType, response.data.comment);
+        } else if (comment.event_id) {
+          // If the comment has an event_id, use that specific event ID
+          const specificEventId = comment.event_id.toString();
+          response = await voteComment(specificEventId, commentId, voteType);
+          onVote(comment.id, voteType, response.data.comment);
+        } else {
+          // Otherwise use the eventId provided as prop
+          response = await voteComment(eventId, commentId, voteType);
+          onVote(comment.id, voteType, response.data.comment);
+        }
+      } catch (err: unknown) {
+        // Type guard to check if the error has the expected structure
+        if (err && typeof err === 'object' && 'response' in err && 
+            err.response && typeof err.response === 'object' && 'data' in err.response) {
+          const errorResponse = err.response as { 
+            data?: { 
+              correctType?: string; 
+              correctId?: number | string;
+              message?: string;
+              detail?: string;
+            } 
+          };
+          
+          // If the error response contains information about where the comment actually belongs
+          if (errorResponse.data?.correctType && errorResponse.data?.correctId) {
+            try {
+              let response;
+              const correctId = errorResponse.data.correctId.toString();
+              
+              if (errorResponse.data.correctType === 'discussion') {
+                response = await voteDiscussionComment(correctId, commentId, voteType);
+                
+                // Update the comment's entity type for future operations
+                comment.discussion_id = Number(correctId);
+                comment.event_id = null;
+              } else if (errorResponse.data.correctType === 'event') {
+                response = await voteComment(correctId, commentId, voteType);
+                
+                // Update the comment's entity type for future operations
+                comment.event_id = Number(correctId);
+                comment.discussion_id = null;
+              }
+              
+              if (response) {
+                onVote(comment.id, voteType, response.data.comment);
+                return;
+              }
+            } catch (_err) {
+              // Retry failed
+            }
+          }
+        }
+        
+        // Re-throw if we can't handle it or the retry failed
+        throw err;
+      }
+    } catch (_ignore) {
+      // Error handling is kept but logs are removed
     } finally {
       setIsVoting(false);
     }

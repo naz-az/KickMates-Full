@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getEvents } from '../services/api';
 import EventCard from '../components/EventCard';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const EventsPage = () => {
+  const location = useLocation();
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,6 +16,25 @@ const EventsPage = () => {
     date: '',
     search: ''
   });
+
+  // Parse URL query parameters when component mounts
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const sportType = queryParams.get('sport_type');
+    const locationParam = queryParams.get('location');
+    const dateParam = queryParams.get('date');
+    const searchParam = queryParams.get('search');
+    
+    const newFilters = { ...filters };
+    
+    if (sportType) newFilters.sport_type = sportType;
+    if (locationParam) newFilters.location = locationParam;
+    if (dateParam) newFilters.date = dateParam;
+    if (searchParam) newFilters.search = searchParam;
+    
+    setFilters(newFilters);
+    // We don't need to call fetchEvents here as it will be triggered by the filters dependency
+  }, [location.search]);
 
   useEffect(() => {
     fetchEvents();
@@ -170,7 +190,19 @@ const EventsPage = () => {
 
             <div className="events-grid">
               {events.length > 0 ? (
-                events.map((event: any) => (
+                events.map((event: {
+                  id: number;
+                  title: string;
+                  location: string;
+                  description?: string;
+                  sport_type: string;
+                  start_date: string;
+                  end_date: string;
+                  max_players: number;
+                  current_players: number;
+                  creator_id: number;
+                  creator_name: string;
+                }) => (
                   <EventCard key={event.id} event={event} />
                 ))
               ) : (

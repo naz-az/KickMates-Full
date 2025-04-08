@@ -323,7 +323,7 @@ const SportsCarousel = () => {
                             
                             <div className="flex flex-wrap gap-4">
                               <Link 
-                                to="/events" 
+                                to={`/events?sport_type=${sport.name}`}
                                 className="px-6 py-3 md:px-8 md:py-4 bg-white text-primary font-bold rounded-full hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-lg"
                               >
                                 Explore {sport.name}

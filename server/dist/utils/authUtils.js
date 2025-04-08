@@ -14,8 +14,8 @@ const db_1 = require("../db");
 // Check if a user is the owner of a resource
 const isResourceOwner = (table, resourceId, userId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // For events table, we need to check creator_id instead of user_id
-        if (table === 'events') {
+        // For events and discussions tables, we need to check creator_id instead of user_id
+        if (table === 'events' || table === 'discussions') {
             const resource = yield (0, db_1.getAsync)(`SELECT * FROM ${table} WHERE id = ? AND creator_id = ?`, [resourceId, userId]);
             return !!resource;
         }

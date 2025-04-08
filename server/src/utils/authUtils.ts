@@ -17,8 +17,8 @@ export const isResourceOwner = async (
   userId: number
 ): Promise<boolean> => {
   try {
-    // For events table, we need to check creator_id instead of user_id
-    if (table === 'events') {
+    // For events and discussions tables, we need to check creator_id instead of user_id
+    if (table === 'events' || table === 'discussions') {
       const resource = await getAsync(
         `SELECT * FROM ${table} WHERE id = ? AND creator_id = ?`,
         [resourceId, userId]

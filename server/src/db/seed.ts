@@ -18,7 +18,7 @@ async function hashPassword(password: string): Promise<string> {
 async function seedNotifications() {
   const notificationTypes = [
     'event_invite', 'event_update', 'event_reminder', 'comment', 
-    'join_request', 'join_accepted', 'system'
+    'join_request', 'join_accepted'
   ];
   
   const usernames = [
@@ -128,8 +128,8 @@ async function seedNotifications() {
           break;
           
         default:
-          content = 'You have a new notification.';
-          // System notifications don't have a sender
+          // Skip this notification by continuing the loop
+          continue;
       }
       
       // Create the notification
@@ -615,37 +615,162 @@ async function seedDatabase() {
     // Create sample notifications
     const notifications = [
       // User 1 (John) notifications
-      { user_id: 1, type: 'event_invite', content: "Jane Smith has invited you to join Tennis Tournament", related_id: 2, is_read: 0, created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-      { user_id: 1, type: 'event_update', content: "Weekend Football Match location has been updated to Central Park North", related_id: 1, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-      { user_id: 1, type: 'join_request', content: "Alex Rodriguez wants to join your Weekend Football Match", related_id: 1, is_read: 0, created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString() },
+      { 
+        user_id: 1, 
+        type: 'event_invite', 
+        content: "Jane Smith has invited you to join Tennis Tournament", 
+        related_id: 2, 
+        sender_id: 2, // Jane Smith's ID
+        sender_image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330', // Jane's image
+        is_read: 0, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() 
+      },
+      { 
+        user_id: 1, 
+        type: 'event_update', 
+        content: "Weekend Football Match location has been updated to Central Park North", 
+        related_id: 1, 
+        sender_id: 1, // John Doe's ID (creator of the event)
+        sender_image: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', // John's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() 
+      },
+      { 
+        user_id: 1, 
+        type: 'join_request', 
+        content: "Alex Rodriguez wants to join your Weekend Football Match", 
+        related_id: 1, 
+        sender_id: 5, // Alex Rodriguez's ID
+        sender_image: 'https://images.unsplash.com/photo-1531427186611-ecfd6d936c79', // Alex's image
+        is_read: 0, 
+        created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString() 
+      },
 
       // User 2 (Jane) notifications
-      { user_id: 2, type: 'event_invite', content: "John Doe has invited you to join Weekend Football Match", related_id: 1, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
-      { user_id: 2, type: 'event_update', content: "Tennis Tournament time has been changed to 11:00 AM", related_id: 2, is_read: 0, created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() },
-      { user_id: 2, type: 'join_accepted', content: "Your request to join Weekend Football Match has been accepted", related_id: 1, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 47).toISOString() },
+      { 
+        user_id: 2, 
+        type: 'event_invite', 
+        content: "John Doe has invited you to join Weekend Football Match", 
+        related_id: 1, 
+        sender_id: 1, // John Doe's ID
+        sender_image: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', // John's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() 
+      },
+      { 
+        user_id: 2, 
+        type: 'event_update', 
+        content: "Tennis Tournament time has been changed to 11:00 AM", 
+        related_id: 2, 
+        sender_id: 2, // Jane Smith's ID (creator of the event)
+        sender_image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330', // Jane's image
+        is_read: 0, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() 
+      },
+      { 
+        user_id: 2, 
+        type: 'join_accepted', 
+        content: "Your request to join Weekend Football Match has been accepted", 
+        related_id: 1, 
+        sender_id: 1, // John Doe's ID (event creator)
+        sender_image: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', // John's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 47).toISOString() 
+      },
 
       // User 3 (Mike) notifications
-      { user_id: 3, type: 'event_invite', content: "John Doe has invited you to join Weekend Football Match", related_id: 1, is_read: 0, created_at: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString() },
-      { user_id: 3, type: 'event_update', content: "Basketball Pickup Game duration has been extended by 1 hour", related_id: 3, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString() },
-      { user_id: 3, type: 'system', content: "Your account has been verified successfully", related_id: null, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString() },
+      { 
+        user_id: 3, 
+        type: 'event_invite', 
+        content: "John Doe has invited you to join Weekend Football Match", 
+        related_id: 1, 
+        sender_id: 1, // John Doe's ID
+        sender_image: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', // John's image
+        is_read: 0, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString() 
+      },
+      { 
+        user_id: 3, 
+        type: 'event_update', 
+        content: "Basketball Pickup Game duration has been extended by 1 hour", 
+        related_id: 3, 
+        sender_id: 3, // Mike Johnson's ID (creator of the event)
+        sender_image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5', // Mike's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString() 
+      },
 
       // User 4 (Sarah) notifications
-      { user_id: 4, type: 'event_invite', content: "Mike Johnson has invited you to join Basketball Pickup Game", related_id: 3, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString() },
-      { user_id: 4, type: 'event_update', content: "Morning Yoga Session has been moved to a different studio", related_id: 4, is_read: 0, created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString() },
-      { user_id: 4, type: 'join_accepted', content: "Your request to join Tennis Tournament has been accepted", related_id: 2, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
+      { 
+        user_id: 4, 
+        type: 'event_invite', 
+        content: "Mike Johnson has invited you to join Basketball Pickup Game", 
+        related_id: 3, 
+        sender_id: 3, // Mike Johnson's ID
+        sender_image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5', // Mike's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString() 
+      },
+      { 
+        user_id: 4, 
+        type: 'event_update', 
+        content: "Morning Yoga Session has been moved to a different studio", 
+        related_id: 4, 
+        sender_id: 4, // Sarah Williams's ID (creator of the event)
+        sender_image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb', // Sarah's image
+        is_read: 0, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString() 
+      },
+      { 
+        user_id: 4, 
+        type: 'join_accepted', 
+        content: "Your request to join Tennis Tournament has been accepted", 
+        related_id: 2, 
+        sender_id: 2, // Jane Smith's ID (event creator)
+        sender_image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330', // Jane's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() 
+      },
 
       // User 5 (Alex) notifications
-      { user_id: 5, type: 'event_invite', content: "Sarah Williams has invited you to join Morning Yoga Session", related_id: 4, is_read: 0, created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-      { user_id: 5, type: 'event_update', content: "Weekly Soccer Game has been postponed due to rain", related_id: 5, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
-      { user_id: 5, type: 'join_accepted', content: "Your request to join Weekend Football Match has been accepted", related_id: 1, is_read: 1, created_at: new Date(Date.now() - 1000 * 60 * 85).toISOString() }
+      { 
+        user_id: 5, 
+        type: 'event_invite', 
+        content: "Sarah Williams has invited you to join Morning Yoga Session", 
+        related_id: 4, 
+        sender_id: 4, // Sarah Williams's ID
+        sender_image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb', // Sarah's image
+        is_read: 0, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() 
+      },
+      { 
+        user_id: 5, 
+        type: 'event_update', 
+        content: "Weekly Soccer Game has been postponed due to rain", 
+        related_id: 5, 
+        sender_id: 5, // Alex Rodriguez's ID (creator of the event)
+        sender_image: 'https://images.unsplash.com/photo-1531427186611-ecfd6d936c79', // Alex's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() 
+      },
+      { 
+        user_id: 5, 
+        type: 'join_accepted', 
+        content: "Your request to join Weekend Football Match has been accepted", 
+        related_id: 1, 
+        sender_id: 1, // John Doe's ID (event creator)
+        sender_image: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', // John's image
+        is_read: 1, 
+        created_at: new Date(Date.now() - 1000 * 60 * 85).toISOString() 
+      }
     ];
 
     // Insert notifications
     for (const notification of notifications) {
       await runAsync(
-        `INSERT INTO notifications (user_id, type, content, related_id, is_read, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [notification.user_id, notification.type, notification.content, notification.related_id, notification.is_read, notification.created_at]
+        `INSERT INTO notifications (user_id, type, content, related_id, sender_id, sender_image, is_read, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [notification.user_id, notification.type, notification.content, notification.related_id, notification.sender_id, notification.sender_image, notification.is_read, notification.created_at]
       );
     }
     console.log('✅ Sample notifications created with detailed timestamps');

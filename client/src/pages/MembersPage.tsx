@@ -79,7 +79,7 @@ const MembersPage = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-12">
+    <div className="bg-gray-100 min-h-screen pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Community Members</h1>
@@ -101,7 +101,7 @@ const MembersPage = () => {
           </div>
         )}
 
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-8">
+        <div className="bg-white shadow-md rounded-lg overflow-hidden mb-8">
           <div className="p-4 border-b border-gray-200">
             <div className="relative rounded-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -135,31 +135,31 @@ const MembersPage = () => {
             filteredUsers.map(user => (
               <div 
                 key={user.id} 
-                className="bg-white rounded-lg shadow-sm overflow-hidden transform transition duration-200 hover:shadow-md hover:-translate-y-1 cursor-pointer"
+                className="bg-white rounded-lg shadow-md overflow-hidden transform transition duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
                 onClick={() => navigateToProfile(user.id)}
               >
-                <div className="bg-gradient-to-r from-blue-500 to-teal-400 h-24"></div>
-                <div className="px-4 pt-0 pb-5 -mt-12 relative">
-                  <div className="absolute -top-14 left-1/2 transform -translate-x-1/2">
+                <div className="bg-gradient-to-r from-blue-600 to-teal-500 h-28"></div>
+                <div className="px-4 pt-0 pb-5 -mt-10 relative">
+                  <div className="absolute -top-24 left-1/2 transform -translate-x-1/2">
                     <img 
                       src={user.profile_image ? formatImageUrl(user.profile_image) : defaultImage} 
                       alt={user.username} 
-                      className="h-24 w-24 rounded-full border-4 border-white object-cover"
+                      className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-md"
                     />
                   </div>
-                  <div className="text-center mt-14">
+                  <div className="text-center mt-16">
                     <h3 className="text-xl font-bold text-gray-900 truncate">
                       {user.full_name || user.username}
                     </h3>
-                    <p className="text-sm text-gray-500">@{user.username}</p>
+                    <p className="text-sm text-gray-500 mt-1">@{user.username}</p>
                     
-                    <div className="mt-4 text-sm text-gray-600 line-clamp-3">
+                    <div className="mt-3 text-sm text-gray-600 line-clamp-3 min-h-[3rem]">
                       {user.bio || 'No bio provided.'}
                     </div>
                     
                     <div className="mt-4">
                       <button 
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors duration-200"
                       >
                         View Profile
                       </button>

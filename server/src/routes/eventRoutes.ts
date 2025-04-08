@@ -104,4 +104,7 @@ router.post('/:id/comments/:commentId/vote',
   voteComment as RequestHandler
 );
 
+// Add a debug log for the route
+console.log('Event comment vote route registered: POST /:id/comments/:commentId/vote');
+
 export default router; 

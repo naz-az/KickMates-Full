@@ -13,6 +13,7 @@ const notificationRoutes_1 = __importDefault(require("./routes/notificationRoute
 const messageRoutes_1 = __importDefault(require("./routes/messageRoutes"));
 const dashboardRoutes_1 = __importDefault(require("./routes/dashboardRoutes"));
 const discussionRoutes_1 = __importDefault(require("./routes/discussionRoutes"));
+const commentRoutes_1 = __importDefault(require("./routes/commentRoutes"));
 const path_1 = __importDefault(require("path"));
 const http_1 = __importDefault(require("http"));
 const socketService_1 = require("./utils/socketService");
@@ -39,6 +40,7 @@ app.use('/api/notifications', notificationRoutes_1.default);
 app.use('/api/messages', messageRoutes_1.default);
 app.use('/api/dashboard', dashboardRoutes_1.default);
 app.use('/api/discussions', discussionRoutes_1.default);
+app.use('/api/comments', commentRoutes_1.default);
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
     app.use(express_1.default.static(path_1.default.join(__dirname, '../../client/dist')));

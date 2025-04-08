@@ -55,7 +55,19 @@ const HomePage = () => {
         ) : (
           <div className="events-grid">
             {featuredEvents.length > 0 ? (
-              featuredEvents.map((event: any) => (
+              featuredEvents.map((event: {
+                id: number;
+                title: string;
+                location: string;
+                description?: string;
+                sport_type: string;
+                start_date: string;
+                end_date: string;
+                max_players: number;
+                current_players: number;
+                creator_id: number;
+                creator_name: string;
+              }) => (
                 <EventCard key={event.id} event={event} />
               ))
             ) : (
@@ -96,24 +108,24 @@ const HomePage = () => {
       <section className="sports-categories">
         <h2>Popular Sports</h2>
         <div className="categories-grid">
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=600&q=80)' }}>
+          <Link to="/events?sport_type=Football" className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=600&q=80)' }}>
             <h3>Football</h3>
-          </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1670898839060-8b0a8902ee1e?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
+          </Link>
+          <Link to="/events?sport_type=Tennis" className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1670898839060-8b0a8902ee1e?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Tennis</h3>
-          </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1519861531473-9200262188bf?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
+          </Link>
+          <Link to="/events?sport_type=Basketball" className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1519861531473-9200262188bf?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Basketball</h3>
-          </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1562088287-bde35a1ea917?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
+          </Link>
+          <Link to="/events?sport_type=Yoga" className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1562088287-bde35a1ea917?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Yoga</h3>
-          </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1629901925121-8a141c2a42f4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
+          </Link>
+          <Link to="/events?sport_type=Pickleball" className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1629901925121-8a141c2a42f4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Pickleball</h3>
-          </div>
-          <div className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1620742820748-87c3f2073f3f?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
+          </Link>
+          <Link to="/events?sport_type=Padel" className="category" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1620742820748-87c3f2073f3f?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)' }}>
             <h3>Padel</h3>
-          </div>
+          </Link>
         </div>
       </section>
 

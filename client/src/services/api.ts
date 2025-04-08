@@ -184,7 +184,10 @@ export const deleteComment = (id: string, commentId: string) => {
 };
 
 export const voteComment = (id: string, commentId: string, voteType: 'up' | 'down') => {
-  return api.post(`/events/${id}/comments/${commentId}/vote`, { voteType });
+  // Ensure both parameters are strings
+  const eventId = String(id);
+  const cmtId = String(commentId);
+  return api.post(`/events/${eventId}/comments/${cmtId}/vote`, { voteType });
 };
 
 export const getUserEvents = () => {
@@ -323,7 +326,10 @@ export const deleteDiscussionComment = (discussionId: string, commentId: string)
 };
 
 export const voteDiscussionComment = (discussionId: string, commentId: string, voteType: 'up' | 'down'): Promise<AxiosResponse<any>> => {
-  return api.post(`/discussions/${discussionId}/comments/${commentId}/vote`, { voteType });
+  // Ensure both parameters are strings
+  const discId = String(discussionId);
+  const cmtId = String(commentId);
+  return api.post(`/discussions/${discId}/comments/${cmtId}/vote`, { voteType });
 };
 
 export const uploadDiscussionImage = (discussionId: string | number, file: File): Promise<AxiosResponse<{ discussion: any }>> => {
@@ -335,6 +341,17 @@ export const uploadDiscussionImage = (discussionId: string | number, file: File)
       'Content-Type': 'multipart/form-data'
     }
   });
+};
+
+// Verify comment entity
+export const verifyCommentEntity = async (commentId: string): Promise<{ entityType: 'event' | 'discussion', entityId: number }> => {
+  try {
+    const response = await api.get(`/comments/${commentId}/entity`);
+    return response.data;
+  } catch (error) {
+    console.error('Error verifying comment entity:', error);
+    throw error;
+  }
 };
 
 export default api;

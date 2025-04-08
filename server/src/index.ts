@@ -8,6 +8,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import messageRoutes from './routes/messageRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import discussionRoutes from './routes/discussionRoutes';
+import commentRoutes from './routes/commentRoutes';
 import path from 'path';
 import http from 'http';
 import { socketService } from './utils/socketService';
@@ -40,6 +41,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/discussions', discussionRoutes);
+app.use('/api/comments', commentRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

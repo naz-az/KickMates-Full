@@ -771,10 +771,14 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
-    // Check if comment exists and belongs to the event
+    // Convert IDs to numbers to ensure proper comparison in the database
+    const eventId = parseInt(id, 10);
+    const cmtId = parseInt(commentId, 10);
+    
+    // First, check if comment exists at all, regardless of which entity it belongs to
     const comment = await getAsync(
-      'SELECT id, thumbs_up, thumbs_down FROM comments WHERE id = ? AND event_id = ?',
-      [commentId, id]
+      'SELECT id, thumbs_up, thumbs_down, event_id, discussion_id FROM comments WHERE id = ?',
+      [cmtId]
     );
     
     if (!comment) {
@@ -782,10 +786,32 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
+    // Check if comment belongs to a discussion instead of an event
+    if (comment.discussion_id !== null && comment.event_id === null) {
+      res.status(404).json({ 
+        message: 'Comment belongs to a discussion, not an event',
+        correctType: 'discussion',
+        correctId: comment.discussion_id,
+        detail: 'This comment is associated with a discussion, not an event.'
+      });
+      return;
+    }
+    
+    // Check if comment belongs to the specified event
+    if (comment.event_id !== eventId) {
+      res.status(404).json({ 
+        message: 'Comment not found for this event',
+        correctType: 'event',
+        correctId: comment.event_id,
+        detail: 'The comment exists but belongs to a different event.'
+      });
+      return;
+    }
+    
     // Check if user has already voted on this comment
     const existingVote = await getAsync(
       'SELECT vote_type FROM comment_votes WHERE comment_id = ? AND user_id = ?',
-      [commentId, userId]
+      [cmtId, userId]
     );
     
     // Start a transaction for the update
@@ -801,7 +827,7 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
           // Update the vote type
           await runAsync(
             'UPDATE comment_votes SET vote_type = ? WHERE comment_id = ? AND user_id = ?',
-            [voteType, commentId, userId]
+            [voteType, cmtId, userId]
           );
           
           // Adjust the counters
@@ -816,7 +842,7 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
           // User is removing their vote
           await runAsync(
             'DELETE FROM comment_votes WHERE comment_id = ? AND user_id = ?',
-            [commentId, userId]
+            [cmtId, userId]
           );
           
           // Adjust the counters
@@ -830,7 +856,7 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
         // User is adding a new vote
         await runAsync(
           'INSERT INTO comment_votes (comment_id, user_id, vote_type) VALUES (?, ?, ?)',
-          [commentId, userId, voteType]
+          [cmtId, userId, voteType]
         );
         
         // Adjust the counters
@@ -844,12 +870,12 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
       // Update comment counter
       await runAsync(
         'UPDATE comments SET thumbs_up = ?, thumbs_down = ? WHERE id = ?',
-        [newThumbsUp, newThumbsDown, commentId]
+        [newThumbsUp, newThumbsDown, cmtId]
       );
       
       await runAsync('COMMIT');
       
-      res.status(200).json({
+      const responseData = {
         message: 'Vote recorded',
         comment: {
           id: comment.id,
@@ -857,13 +883,14 @@ export const voteComment = async (req: Request, res: Response): Promise<void> =>
           thumbs_down: newThumbsDown,
           user_vote: existingVote && existingVote.vote_type === voteType ? null : voteType
         }
-      });
+      };
+      
+      res.status(200).json(responseData);
     } catch (error) {
       await runAsync('ROLLBACK');
       throw error;
     }
   } catch (error) {
-    console.error('Vote comment error:', error);
     res.status(500).json({ message: 'Server error voting on comment' });
   }
 };
