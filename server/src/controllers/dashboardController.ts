@@ -17,13 +17,14 @@ export const getTopCourses = async (req: AuthRequest, res: Response) => {
   try {
     // Changed SQL to fetch from events table instead of dashboard_courses
     const events = await allAsync(
-      `SELECT e.id, e.title, e.description, e.sport_type, e.location, e.start_date as event_date, e.end_date as event_time, 
+      `SELECT e.id, e.title as name, e.description, e.sport_type, e.location, 
+              strftime('%B %d, %Y', e.start_date) as date, 
+              e.image_url as img_url,
               u.username as organizer, u.profile_image as organizer_avatar, 
-              (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) as participants_count,
-              e.image_url
+              (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) as total_participants
        FROM events e
        JOIN users u ON e.creator_id = u.id
-       ORDER BY participants_count DESC 
+       ORDER BY total_participants DESC 
        LIMIT 4`
     );
     
@@ -43,7 +44,10 @@ export const getUserCourses = async (req: AuthRequest, res: Response) => {
   try {
     // Changed to get user's events 
     const userEvents = await allAsync(
-      `SELECT e.id, e.title, e.sport_type, e.start_date as event_date, e.end_date as event_time, e.image_url,
+      `SELECT e.id, e.title, e.sport_type, 
+              strftime('%B %d, %Y', e.start_date) as event_date, 
+              strftime('%H:%M', e.start_date) as event_time, 
+              e.image_url,
               (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) as total_participants
        FROM events e
        WHERE e.creator_id = ? OR e.id IN (SELECT event_id FROM event_participants WHERE user_id = ?)
@@ -171,19 +175,52 @@ export const getUpcomingEvents = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   
   try {
-    const events = await allAsync(
-      `SELECT e.id, e.title, e.sport_type as type, 
-              strftime('%B %d', e.start_date) as event_date, 
-              strftime('%H:%M', e.start_date) as event_time
+    // Get raw event data first to debug
+    const rawEvents = await allAsync(
+      `SELECT e.id, e.title, e.sport_type, e.start_date, e.end_date
        FROM events e
        WHERE e.start_date >= date('now')
        AND (e.creator_id = ? OR e.id IN (SELECT event_id FROM event_participants WHERE user_id = ?))
        ORDER BY e.start_date
-       LIMIT 5`,
+       LIMIT 8`,
       [userId, userId]
     );
     
-    res.status(200).json(events);
+    console.log("RAW EVENTS FROM DATABASE:", JSON.stringify(rawEvents, null, 2));
+    
+    // Now get formatted events
+    const events = await allAsync(
+      `SELECT e.id, e.title, e.sport_type as type, 
+              strftime('%B %d, %Y', e.start_date) as event_date, 
+              strftime('%H:%M', e.start_date) as event_time,
+              e.creator_id
+       FROM events e
+       WHERE e.start_date >= date('now')
+       AND (e.creator_id = ? OR e.id IN (SELECT event_id FROM event_participants WHERE user_id = ?))
+       ORDER BY e.start_date
+       LIMIT 8`,
+      [userId, userId]
+    );
+    
+    console.log("FORMATTED EVENTS:", JSON.stringify(events, null, 2));
+    
+    // Fix any null event dates manually
+    const fixedEvents = events.map((event, index) => {
+      if (!event.event_date && rawEvents[index] && rawEvents[index].start_date) {
+        // Manually format the date from the raw data
+        const startDate = new Date(rawEvents[index].start_date);
+        const options: Intl.DateTimeFormatOptions = { 
+          month: 'long', 
+          day: 'numeric', 
+          year: 'numeric' 
+        };
+        event.event_date = startDate.toLocaleDateString('en-US', options);
+        console.log(`Fixed null date for event ${event.id}: ${event.event_date}`);
+      }
+      return event;
+    });
+    
+    res.status(200).json(fixedEvents);
   } catch (error) {
     console.error('Error getting upcoming events:', error);
     res.status(500).json({ message: 'Failed to fetch upcoming events' });

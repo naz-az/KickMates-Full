@@ -63,13 +63,13 @@ export const getUserNotifications = (req: Request, res: Response) => {
             sender_username?: string;
           };
           
-          console.log('Sample notification with sender and image:', {
-            id: sample.id,
-            sender_id: sample.sender_id,
-            original_sender_image: sample.sender_image,
-            current_sender_image: sample.current_sender_image,
-            sender_username: sample.sender_username
-          });
+          // console.log('Sample notification with sender and image:', {
+            // id: sample.id,
+            // sender_id: sample.sender_id,
+            // original_sender_image: sample.sender_image,
+            // current_sender_image: sample.current_sender_image,
+            // sender_username: sample.sender_username
+          // });
         }
         
         if (withoutImage.length > 0) {

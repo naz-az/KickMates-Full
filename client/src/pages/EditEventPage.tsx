@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEventById, updateEvent, uploadEventImage } from '../services/api';
+import { formatImageUrl } from '../utils/imageUtils';
 
 const EditEventPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -265,21 +266,27 @@ const EditEventPage = () => {
         setIsUploadingImage(true);
         try {
           await uploadEventImage(id!, selectedImage);
-        } catch (imgErr) {
-          //console.error('Error uploading image:', imgErr);
-          setError('Event was updated but image upload failed. Please try uploading the image again.');
-          setIsSubmitting(false);
-          setIsUploadingImage(false);
-          return;
+        } catch {
+          console.error('Error uploading new event image:');
+          // Decide if we should show an error to the user, maybe just log it
+          // setError('Failed to upload the new image, but event details were updated.');
         } finally {
           setIsUploadingImage(false);
         }
       }
       
       navigate(`/events/${id}`);
-    } catch (error) {
-      //console.error('Error updating event:', error);
-      setError('Failed to update event. Please try again.');
+    } catch (err: unknown) {
+      console.error('Error updating event:', err);
+      // Safe type checking for potential Axios error structure
+      let errorMessage = 'Failed to update event. Please try again.';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { message?: string } } }).response;
+        errorMessage = response?.data?.message || errorMessage;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -548,6 +555,18 @@ const EditEventPage = () => {
                       className="rounded-lg overflow-hidden border border-gray-200 h-36 w-full bg-cover bg-center" 
                       style={{backgroundImage: `url(${imagePreview || formData.image_url})`}}
                     ></div>
+                  </div>
+                )}
+                
+                {/* Show preview for URL image */}
+                {!selectedImage && formData.image_url && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Preview:</p>
+                    <div 
+                      className="rounded-lg overflow-hidden border border-gray-200 h-36 w-full bg-cover bg-center"
+                      style={{ backgroundImage: `url(${formatImageUrl(formData.image_url)})` }}
+                    >
+                    </div>
                   </div>
                 )}
                 

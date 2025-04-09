@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getDiscussionById, updateDiscussion, uploadDiscussionImage } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import { formatImageUrl } from '../utils/imageUtils';
 
 const CATEGORIES = [
   'Basketball',
@@ -189,13 +190,13 @@ const EditDiscussionPage = () => {
       
       // Redirect to the discussion
       navigate(`/discussions/${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating discussion:', err);
       setSubmitting(false);
       
       // Handle API errors
-      if (err.response?.data?.message) {
-        alert(`Error: ${err.response.data.message}`);
+      if (err instanceof Error && err.message) {
+        alert(`Error: ${err.message}`);
       } else {
         alert('An error occurred while updating the discussion. Please try again.');
       }
@@ -305,7 +306,7 @@ const EditDiscussionPage = () => {
             
             <div className="current-image-preview mt-2 relative rounded-lg border border-gray-200 overflow-hidden shadow-md">
               <img 
-                src={currentImage} 
+                src={formatImageUrl(currentImage, "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=300&q=80")}
                 alt="Current" 
                 className="max-h-64 w-full object-contain"
                 onError={(e) => {

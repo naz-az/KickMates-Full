@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '../services/api';
 import { NotificationContext } from '../context/NotificationContext';
+import { formatImageUrl } from '../utils/imageUtils';
 
 // Types
 interface Notification {
@@ -315,28 +316,28 @@ const NotificationsPage = () => {
     const storedImg = notification.sender_image;
     const imgUrl = currentImg || storedImg;
     
-    console.log(`Notification #${notification.id} image sources:`, {
-      current_sender_image: currentImg,
-      sender_image: storedImg,
-      selected: imgUrl,
-      sender_id: notification.sender_id,
-      sender_username: notification.sender_username
-    });
-    
+    // console.log(`Notification #${notification.id} image sources:`, {
+      // current_sender_image: currentImg,
+      // sender_image: storedImg,
+      // selected: imgUrl,
+      // sender_id: notification.sender_id,
+      // sender_username: notification.sender_username
+    // });
+    // 
     // If we've already verified this URL is invalid, use default immediately
     if (imgUrl && validImageUrls[imgUrl] === false) {
       console.log(`Using default image for notification #${notification.id} (cached invalid URL)`);
-      return getDefaultProfileImage();
+      return formatImageUrl(getDefaultProfileImage(), getDefaultProfileImage());
     }
     
     // Otherwise use the sender_image or default as fallback
     if (!imgUrl) {
       console.log(`Using default image for notification #${notification.id} (no image URL provided)`);
-      return getDefaultProfileImage();
+      return formatImageUrl(getDefaultProfileImage(), getDefaultProfileImage());
     }
     
     console.log(`Using image URL for notification #${notification.id}: ${imgUrl}`);
-    return imgUrl;
+    return formatImageUrl(imgUrl, getDefaultProfileImage());
   };
 
   // Handle filter change

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createEvent, uploadEventImage } from '../services/api';
+import { formatImageUrl } from '../utils/imageUtils';
 
 const CreateEventPage = () => {
   const navigate = useNavigate();
@@ -152,16 +153,25 @@ const CreateEventPage = () => {
           setIsUploading(true);
           await uploadEventImage(eventId, selectedImage);
           setIsUploading(false);
-        } catch (uploadErr: any) {
+        } catch (uploadErr: unknown) {
           console.error('Error uploading event image:', uploadErr);
           
           // Check if it's a file type error
-          if (uploadErr.response?.data?.type === 'invalid_file_type') {
-            setError(uploadErr.response.data.message || 'Only image files (jpg, jpeg, png, gif, webp) are allowed.');
-          } else {
-            // Show error but continue anyway - the event was created
-            setError('Event created but image upload failed. You can edit the event to try uploading the image again.');
+          // Need to handle unknown type safely
+          let uploadErrorMessage = 'An unknown upload error occurred.';
+          if (typeof uploadErr === 'object' && uploadErr !== null && 'response' in uploadErr) {
+            // Assuming AxiosError structure for response
+            const response = (uploadErr as { response?: { data?: { type?: string, message?: string } } }).response;
+            if (response?.data?.type === 'invalid_file_type') {
+              uploadErrorMessage = response.data.message || 'Only image files (jpg, jpeg, png, gif, webp) are allowed.';
+            } else {
+              uploadErrorMessage = response?.data?.message || 'Event created but image upload failed. You can edit the event to try uploading the image again.';
+            }
+          } else if (uploadErr instanceof Error) {
+            uploadErrorMessage = uploadErr.message;
           }
+          
+          setError(uploadErrorMessage);
           
           // Keep the user on the page if there's an image upload error
           setIsSubmitting(false);
@@ -494,7 +504,7 @@ const CreateEventPage = () => {
                             <div className="mt-4">
                               <p className="text-sm font-medium mb-2">Preview:</p>
                               <div className="rounded-lg overflow-hidden border border-gray-200 h-36 w-full bg-cover bg-center" 
-                                style={{backgroundImage: `url(${formData.image_url})`}}>
+                                style={{backgroundImage: `url(${formatImageUrl(formData.image_url)})`}}>
                               </div>
                             </div>
                           )}

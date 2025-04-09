@@ -9,6 +9,7 @@ import {
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import { formatImageUrl } from '../utils/imageUtils';
 
 // Import Comment component for reuse
 import Comment from '../components/Comment';
@@ -312,7 +313,7 @@ const DiscussionDetailPage = () => {
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-    } catch (err) {
+    } catch {
       return dateString;
     }
   };
@@ -320,6 +321,37 @@ const DiscussionDetailPage = () => {
   // Navigate to user profile
   const navigateToUserProfile = (userId: number) => {
     navigate(`/profile/${userId}`);
+  };
+
+  // Helper function to get badge styles based on category (consistent across pages)
+  const getCategoryBadgeClasses = (category: string): string => {
+    const baseClasses = 'inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium leading-none mb-2';
+    switch (category?.toLowerCase()) {
+      case 'basketball':
+        return `${baseClasses} bg-orange-100 text-orange-800 ring-1 ring-inset ring-orange-600/20`;
+      case 'football': // Using amber for American Football consistency
+        return `${baseClasses} bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-600/20`;
+      case 'soccer':
+        return `${baseClasses} bg-green-100 text-green-800 ring-1 ring-inset ring-green-600/20`;
+      case 'tennis':
+        return `${baseClasses} bg-lime-100 text-lime-800 ring-1 ring-inset ring-lime-600/20`;
+      case 'running':
+        return `${baseClasses} bg-red-100 text-red-800 ring-1 ring-inset ring-red-600/20`;
+      case 'swimming':
+        return `${baseClasses} bg-cyan-100 text-cyan-800 ring-1 ring-inset ring-cyan-600/20`;
+      case 'cycling':
+        return `${baseClasses} bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-600/20`;
+      case 'yoga':
+        return `${baseClasses} bg-purple-100 text-purple-800 ring-1 ring-inset ring-purple-600/20`;
+      case 'fitness':
+      case 'pickleball': // Added consistent styling
+      case 'padel':      // Added consistent styling
+        return `${baseClasses} bg-pink-100 text-pink-800 ring-1 ring-inset ring-pink-600/20`;
+      case 'other':
+        return `${baseClasses} bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-500/20`;
+      default: // Default for 'All' or any unexpected category
+        return `${baseClasses} bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-500/20`;
+    }
   };
 
   if (loading) {
@@ -339,6 +371,11 @@ const DiscussionDetailPage = () => {
         </Link>
       </div>
     );
+  }
+
+  // Log the profile image URL before rendering
+  if (discussion) {
+    console.log('Discussion Profile Image URL:', discussion.profile_image);
   }
 
   return (
@@ -364,24 +401,13 @@ const DiscussionDetailPage = () => {
         <div className="p-8">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <span className={`category inline-block text-black rounded text-xs px-3 min-w-20 text-center h-7 flex items-center justify-center mb-2 ${
-                discussion.category === 'Basketball' ? 'bg-orange-500' :
-                discussion.category === 'Football' ? 'bg-blue-600' :
-                discussion.category === 'Soccer' ? 'bg-green-600' :
-                discussion.category === 'Tennis' ? 'bg-yellow-500' :
-                discussion.category === 'Running' ? 'bg-red-500' :
-                discussion.category === 'Swimming' ? 'bg-cyan-500' :
-                discussion.category === 'Cycling' ? 'bg-lime-600' :
-                discussion.category === 'Yoga' ? 'bg-purple-500' :
-                discussion.category === 'Fitness' ? 'bg-pink-500' :
-                'bg-gray-600' // Other or fallback
-              }`}>
+              <span className={getCategoryBadgeClasses(discussion.category)}>
                 {discussion.category}
               </span>
               <h1 className="text-3xl md:text-4xl font-bold text-gray-800">{discussion.title}</h1>
               <div className="meta text-sm text-gray-500 mt-3 flex items-center">
                 <img 
-                  src={discussion.profile_image || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80'} 
+                  src={formatImageUrl(discussion.profile_image, 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=100&q=80')} 
                   alt={discussion.username}
                   className="w-8 h-8 rounded-full mr-2 border-2 border-indigo-100 shadow-sm cursor-pointer"
                   onClick={() => navigateToUserProfile(discussion.creator_id)}

@@ -37,7 +37,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     
     // Check if user exists
     const user = await getAsync('SELECT id, username, email FROM users WHERE id = ?', [decoded.userId]);
-    console.log('User Found:', user ? 'Yes' : 'No');
+    // console.log('User Found:', user ? 'Yes' : 'No');
     
     if (!user) {
       res.status(401).json({ message: 'User not found' });
