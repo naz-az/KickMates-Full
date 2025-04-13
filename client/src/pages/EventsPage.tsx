@@ -74,9 +74,9 @@ const EventsPage = () => {
 
   return (
     <div className="events-page">
-      <div className="page-header">
-        <h1>Find Sports Events</h1>
-        <p>Discover and join sports activities happening around you</p>
+      <div className="bg-gradient-to-r from-primary/10 to-primary-dark/10 rounded-lg p-6 mb-8 text-center">
+        <h1 className="text-3xl font-bold text-primary-dark mb-2">Find Sports Events</h1>
+        <p className="text-text-light max-w-2xl mx-auto">Discover and join sports activities happening around you</p>
       </div>
       
       <div className="filters-container">

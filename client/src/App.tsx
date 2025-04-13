@@ -34,7 +34,7 @@ const App = () => {
   // State for sidebar collapse
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
-  // Toggle sidebar collapsed state
+  // Toggle sidebar collapsed state with smooth transition
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };

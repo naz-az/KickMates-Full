@@ -1160,6 +1160,11 @@ const MessagesPage = () => {
         }
         `}
       </style>
+
+      <div className="bg-gradient-to-r from-primary/10 to-primary-dark/10 rounded-lg p-6 mb-8 text-center">
+        <h1 className="text-3xl font-bold text-primary-dark mb-2">Messages</h1>
+        <p className="text-text-light max-w-2xl mx-auto">Connect and chat with other sports enthusiasts</p>
+      </div>
       
       <div className="chat-container">
         {/* Chat Sidebar */}

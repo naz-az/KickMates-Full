@@ -502,10 +502,10 @@ const SettingsPage = () => {
         className="hidden"
       />
       
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-xl shadow-sm mb-6 p-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Settings</h1>
-          <p className="text-gray-600 mt-1">Manage your account settings and preferences</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-1">
+        <div className="bg-gradient-to-r from-primary/10 to-primary-dark/10 rounded-lg p-6 mb-6 text-center">
+          <h1 className="text-3xl font-bold text-primary-dark mb-2">Settings</h1>
+          <p className="text-text-light max-w-2xl mx-auto">Manage your account settings and preferences</p>
         </div>
         
         <div className="flex flex-col md:flex-row gap-6">

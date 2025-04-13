@@ -242,12 +242,12 @@ const SportsCarousel = () => {
     >
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-primary-light/10 to-accent/5 -z-10"></div>
       
-      <div className="text-center mb-10 animate-fade-in">
+      {/* <div className="text-center mb-10 animate-fade-in">
         <h2 className="text-4xl font-bold text-primary-dark mb-4" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontSize: '3rem', color: '#000' }}>Find Your Next Sports Buddy</h2>
         <p className="text-lg text-text-light max-w-2xl mx-auto">
           Join sports sessions and connect with others who share your passion for sports and an active lifestyle.
         </p>
-      </div>
+      </div> */}
       
       <div className="max-w-7xl mx-auto px-2 relative">
         {loading ? (

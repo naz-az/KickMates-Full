@@ -36,6 +36,9 @@ export default {
           '100%': { opacity: 1 },
         },
       },
+      transitionDuration: {
+        '2000': '2000ms',
+      },
     },
   },
   plugins: [],
